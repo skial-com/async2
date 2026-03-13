@@ -1,0 +1,47 @@
+# Build output
+build/
+build-*/
+build_tmp/
+test/build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Compiled SourcePawn plugins
+*.smx
+
+# Compiled test binaries and local libraries
+test/bench_compare
+test/bench_json
+test/bench_maps
+test/bench_ptr
+test/test_json_parser
+test/test_msgpack
+
+
+# Built static libraries
+libs/x86/
+libs/x86_64/
+
+# Generated headers (created by build_deps)
+third_party/c-ares/include/ares_build.h
+
+# Optional benchmark dependencies (not submodules)
+third_party/emhash/
+third_party/flat_hash_map/
+third_party/jansson/
+third_party/robin-hood-hashing/
+third_party/unordered_dense/
+third_party/yyjson/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.clangd
+
+# OS
+.DS_Store
+Thumbs.db

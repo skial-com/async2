@@ -1,0 +1,140 @@
+/**
+ * async2 — Asynchronous HTTP/S, JSON/MessagePack, TCP, UDP, and WebSocket extension
+ *
+ * OVERVIEW:
+ *   All I/O is fully asynchronous. Operations are dispatched to a background
+ *   event loop thread (libuv), and results are delivered via callbacks on the
+ *   game thread during OnGameFrame.
+ *
+ * HTTP LIFECYCLE:
+ *   1. WebRequest req = async2_HttpNew(userdata) — create handle
+ *   2. Configure: SetHeader, SetBody*, SetOptInt, etc.
+ *   3. req.Execute("GET", url, callback)       — sends request (handle becomes in-flight)
+ *   4. In-flight handles cannot be reconfigured — only Close is allowed
+ *   5. Callback fires with (request, curlcode, httpcode, size, userdata)
+ *      - curlcode: 0 = success, non-zero = curl error (use async2_CurlErrorString)
+ *      - curlcode 42 (CURLE_ABORTED_BY_CALLBACK) = user called Close() while in-flight
+ *        (handle is invalid in this callback — do not call GetString/GetRawData/etc.)
+ *      - httpcode: HTTP status code (200, 404, etc.) — only valid when curlcode == 0
+ *      - size: response body size in bytes
+ *   6. In the callback: read response with GetString/GetRawData, parse with Json.ParseResponse
+ *   7. The handle is automatically freed after the callback returns.
+ *      Do NOT call Close() in the callback — it is not needed.
+ *      Close() is only needed if you create a handle but never call Execute().
+ *
+ *   IMPORTANT: Do NOT use `new WebRequest()` — use `async2_HttpNew()` instead.
+ *   WebRequest is not an object-like methodmap (spcomp 1.13+ enforces this).
+ *
+ * JSON HANDLE OWNERSHIP:
+ *   - Parse/Create/Copy return new handles that must be closed with JsonClose
+ *   - GetObject/GetArray/ArrayGetObject return SHALLOW handles into the same tree
+ *     Mutations through child handles are visible through the parent.
+ *     Closing the parent does NOT invalidate children (shared ownership via refcount).
+ *   - SetObject/ArrayAppendObject DEEP-COPY the child. The child is not consumed.
+ *
+ * TCP LIFECYCLE:
+ *   Client: TcpNew → SetCallbacks → Connect → [onConnect] → Send → [onData] → Close
+ *   Server: TcpNew → SetCallbacks → Listen → [onAccept(client)] → client.Send → Close
+ *   DNS resolution is async (c-ares). Errors delivered via onError callback.
+ *
+ * UDP LIFECYCLE:
+ *   UdpNew → SetCallbacks → Bind → Send/[onData] → Close
+ *   DNS resolution for Send targets is async.
+ *
+ * WEBSOCKET LIFECYCLE:
+ *   WsNew → SetCallbacks → [SetHeader] → Connect(url) → [onConnect] → SendText/SendBinary → [onMessage] → Close
+ *   Headers can be set/removed at any time — changes apply on next connect/reconnect.
+ *   Uses curl's built-in WebSocket API. Supports ws:// and wss://.
+ *   Auto-pong enabled by default (curl handles it). Close sends a close frame.
+ *
+ * DNS CACHING:
+ *   There are two independent DNS caches — one for HTTP and one for TCP/UDP.
+ *   Both use c-ares internally, but curl creates its own c-ares channel that
+ *   cannot share state with ours.
+ *
+ *   HTTP:     Managed by curl. Default 60s TTL per curl_multi handle.
+ *             Per-request: SetOptInt(req, CURLOPT_DNS_CACHE_TIMEOUT, seconds).
+ *             0 = disable (bypass cache), -1 = infinite. Cannot be flushed at
+ *             runtime (would require destroying the connection pool).
+ *   TCP/UDP:  Managed by async2. Default 60s TTL, max 1024 entries.
+ *             Configure with async2_DnsCacheSetTtl(). 0 = disable.
+ *             Flushable with async2_DnsCacheFlush().
+ *
+ *   The async2_Dns* natives only affect the TCP/UDP cache.
+ *   To control HTTP DNS behavior, use CURLOPT_DNS_CACHE_TIMEOUT per request.
+ *
+ * RETURN VALUES:
+ *   Natives with int return type and no documented return value always return 0.
+ *   Handle-returning natives return 0 on failure.
+ *
+ * HANDLES:
+ *   async2 types (WebRequest, Json, TcpSocket, UdpSocket, WsSocket) are NOT
+ *   SourceMod handles. They use an internal handle manager, not SM's handlesys.
+ *   Do NOT pass them to CloseHandle(), delete, or any API expecting a Handle.
+ *   Always use the type's own .Close() method (e.g. json.Close(), ws.Close()).
+ */
+
+#if defined _async2_included
+    #endinput
+#endif
+#define _async2_included
+
+// Define SOURCEMOD_INT64 before including this file to enable native int64
+// parameter types (requires SourcePawn int64 support, expected in SM 1.14+).
+// Without this, 64-bit integers use int[2] arrays (low, high).
+// #define SOURCEMOD_INT64
+
+#define CURL_ERROR_SIZE 256
+
+// JSON value types
+enum JsonType {
+    JSON_TYPE_NONE = 0,
+    JSON_TYPE_NULL,
+    JSON_TYPE_BOOL,
+    JSON_TYPE_NUMBER,
+    JSON_TYPE_STRING,
+    JSON_TYPE_ARRAY,
+    JSON_TYPE_OBJECT,
+    JSON_TYPE_BINARY,
+    JSON_TYPE_INTOBJECT,
+};
+
+// Callback signatures
+typeset WebCallback {
+    function void(WebRequest request, int curlcode, int httpcode, int size);
+    function void(WebRequest request, int curlcode, int httpcode, int size, any userdata);
+    function void(WebRequest request, int curlcode, int httpcode, Json data);
+    function void(WebRequest request, int curlcode, int httpcode, Json data, any userdata);
+};
+
+#include <async2/curl_enums>
+#include <async2/json>
+#include <async2/intobject>
+#include <async2/msgpack>
+#include <async2/http>
+#include <async2/tcp>
+#include <async2/udp>
+#include <async2/ws>
+#include <async2/dns>
+#include <async2/crypto>
+#include <async2/url>
+#include <async2/linkedlist>
+#include <async2/time>
+
+// ============================================================================
+// Extension registration
+// ============================================================================
+public Extension:__ext_async2 = {
+    name = "async2",
+    file = "async2.ext",
+#if defined AUTOLOAD_EXTENSIONS
+    autoload = 1,
+#else
+    autoload = 0,
+#endif
+#if defined REQUIRE_EXTENSIONS
+    required = 1,
+#else
+    required = 0,
+#endif
+}

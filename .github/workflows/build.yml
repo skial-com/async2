@@ -1,0 +1,199 @@
+name: Build
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Cache test build directory
+      uses: actions/cache@v5
+      with:
+        path: test/build
+        key: test-build-${{ github.sha }}
+        restore-keys: |
+          test-build-
+
+    - name: Build and run tests
+      run: |
+        cd test
+        mkdir -p build && cd build
+        cmake ..
+        make
+        ctest --output-on-failure
+
+  build-linux:
+    needs: test
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        arch: [x86, x86_64]
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Update OpenSSL to latest LTS patch
+      run: ./update_openssl.sh
+
+    - name: Compute dependency cache key
+      id: deps-key
+      run: echo "hash=$(git submodule status --recursive | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache third-party libraries
+      id: cache-deps
+      uses: actions/cache@v5
+      with:
+        path: |
+          libs/${{ matrix.arch }}
+          build_tmp/${{ matrix.arch }}/prefix
+          third_party/c-ares/include/ares_build.h
+        key: deps-linux-${{ matrix.arch }}-${{ steps.deps-key.outputs.hash }}-${{ hashFiles('build_deps.sh') }}
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake clang
+        if [ "${{ matrix.arch }}" = "x86" ]; then
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib
+        fi
+
+    - name: Build third-party libraries
+      if: steps.cache-deps.outputs.cache-hit != 'true'
+      run: ./build_deps.sh ${{ matrix.arch }}
+
+    - name: Setup SourceMod
+      run: |
+        cd ..
+        git clone --depth 1 --branch 1.12-dev https://github.com/alliedmodders/sourcemod.git
+        cd sourcemod
+        git submodule update --init --depth 1
+
+    - name: Build
+      env:
+        CC: clang
+        CXX: clang++
+      run: |
+        mkdir -p build/${{ matrix.arch }} && cd build/${{ matrix.arch }}
+        cmake ../.. -DSM_PATH="$GITHUB_WORKSPACE/../sourcemod" -DEXT_VERSION=${GITHUB_REF_NAME} -DCMAKE_BUILD_TYPE=Release \
+          $([ "${{ matrix.arch }}" = "x86" ] && echo "-DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_SHARED_LINKER_FLAGS=-m32")
+        cmake --build . -j
+
+    - name: Package
+      run: |
+        cmake --install build/${{ matrix.arch }} --prefix build/package
+        mkdir -p build/package/addons/sourcemod/scripting/include
+        cp sourcepawn/async2.inc build/package/addons/sourcemod/scripting/include/
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v5
+      with:
+        name: async2-linux-${{ matrix.arch }}
+        path: build/package/
+
+  build-windows:
+    needs: test
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        arch: [x86, x86_64]
+        include:
+          - arch: x86
+            cmake_arch: Win32
+          - arch: x86_64
+            cmake_arch: x64
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: recursive
+
+    - name: Compute dependency cache key
+      shell: bash
+      id: deps-key
+      run: echo "hash=$(git submodule status --recursive | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache third-party libraries
+      id: cache-deps
+      uses: actions/cache@v5
+      with:
+        path: |
+          libs/${{ matrix.arch }}
+          build_tmp/${{ matrix.arch }}/prefix
+        key: deps-windows-v2-${{ matrix.arch }}-${{ steps.deps-key.outputs.hash }}-${{ hashFiles('build_deps.bat') }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: Build third-party libraries
+      if: steps.cache-deps.outputs.cache-hit != 'true'
+      shell: cmd
+      run: build_deps.bat ${{ matrix.arch }}
+
+    - name: Setup SourceMod
+      shell: bash
+      run: |
+        cd ..
+        git clone --depth 1 --branch 1.12-dev https://github.com/alliedmodders/sourcemod.git
+        cd sourcemod
+        git submodule update --init --depth 1
+
+    - name: Build
+      shell: bash
+      run: |
+        mkdir -p build/${{ matrix.arch }} && cd build/${{ matrix.arch }}
+        cmake ../.. -A ${{ matrix.cmake_arch }} -DSM_PATH="$GITHUB_WORKSPACE/../sourcemod" -DEXT_VERSION=${GITHUB_REF_NAME}
+        cmake --build . --config Release -j
+
+    - name: Package
+      shell: bash
+      run: |
+        cmake --install build/${{ matrix.arch }} --config Release --prefix build/package
+        mkdir -p build/package/addons/sourcemod/scripting/include
+        cp sourcepawn/async2.inc build/package/addons/sourcemod/scripting/include/
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v5
+      with:
+        name: async2-windows-${{ matrix.arch }}
+        path: build/package/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v5
+      with:
+        path: artifacts
+
+    - name: Create release archives
+      run: |
+        cd artifacts
+        for dir in */; do
+          name="${dir%/}"
+          (cd "$name" && zip -r "../../${name}.zip" .)
+        done
+
+    - name: Create release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        gh release create "${{ github.ref_name }}" \
+          --title "${{ github.ref_name }}" \
+          --generate-notes \
+          *.zip

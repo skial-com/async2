@@ -1,0 +1,40 @@
+[submodule "third_party/robin-map"]
+	path = third_party/robin-map
+	url = https://github.com/Tessil/robin-map.git
+	shallow = true
+[submodule "third_party/xxhash"]
+	path = third_party/xxhash
+	url = https://github.com/Cyan4973/xxHash.git
+	shallow = true
+[submodule "third_party/brotli"]
+	path = third_party/brotli
+	url = https://github.com/google/brotli.git
+	shallow = true
+[submodule "third_party/c-ares"]
+	path = third_party/c-ares
+	url = https://github.com/c-ares/c-ares.git
+	shallow = true
+[submodule "third_party/curl"]
+	path = third_party/curl
+	url = https://github.com/curl/curl.git
+	shallow = true
+[submodule "third_party/libuv"]
+	path = third_party/libuv
+	url = https://github.com/libuv/libuv.git
+	shallow = true
+[submodule "third_party/nghttp2"]
+	path = third_party/nghttp2
+	url = https://github.com/nghttp2/nghttp2.git
+	shallow = true
+[submodule "third_party/zlib"]
+	path = third_party/zlib
+	url = https://github.com/madler/zlib.git
+	shallow = true
+[submodule "third_party/simdjson"]
+	path = third_party/simdjson
+	url = https://github.com/simdjson/simdjson.git
+	shallow = true
+[submodule "third_party/openssl"]
+	path = third_party/openssl
+	url = https://github.com/openssl/openssl.git
+	shallow = true
