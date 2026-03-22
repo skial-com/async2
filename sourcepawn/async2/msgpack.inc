@@ -24,3 +24,11 @@ native int async2_MsgPackSerialize(Json jsonHandle, char[] buffer, int maxlen);
 // The JSON handle is NOT consumed — caller must close it separately.
 // Returns 0 on success, 2 if invalid or in-flight handle, 3 if serialization failed.
 native int async2_SetBodyMsgPack(WebRequest handle, Json jsonHandle);
+
+// Sets the maximum number of elements allowed in a single msgpack array or map.
+// Payloads exceeding this limit will fail to parse (MsgPackParse returns 0).
+// Pass 0 to reset to default. Default: 1,000,000.
+native void async2_MsgPackSetMaxElements(int limit);
+
+// Returns the current maximum element limit for msgpack array/map parsing.
+native int async2_MsgPackGetMaxElements();

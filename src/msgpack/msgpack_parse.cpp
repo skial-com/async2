@@ -3,6 +3,15 @@
 #include <cstring>
 
 static constexpr int kMaxDepth = 256;
+static size_t g_max_container_elements = 1000000;
+
+void MsgPackSetMaxElements(size_t limit) {
+    g_max_container_elements = limit > 0 ? limit : 1000000;
+}
+
+size_t MsgPackGetMaxElements() {
+    return g_max_container_elements;
+}
 
 namespace {
 
@@ -60,6 +69,8 @@ static DataNode* read_node(Reader& r, int depth);
 static DataNode* read_map(Reader& r, size_t count, int depth) {
     if (count == 0)
         return DataNode::MakeObject();
+    if (count > g_max_container_elements)
+        return nullptr;
 
     // Peek at first key's type byte to determine int-keyed vs string-keyed map.
     // Avoids allocating a DataNode just to inspect the type.
@@ -110,6 +121,8 @@ static DataNode* read_map(Reader& r, size_t count, int depth) {
 }
 
 static DataNode* read_array(Reader& r, size_t count, int depth) {
+    if (count > g_max_container_elements)
+        return nullptr;
     auto* arr = DataNode::MakeArray();
     arr->arr.reserve(count);
     for (size_t i = 0; i < count; i++) {
@@ -147,7 +160,7 @@ static DataNode* read_node(Reader& r, int depth) {
         size_t len = b & 0x1f;
         if (!r.has(len)) return nullptr;
         const uint8_t* p = r.read_bytes(len);
-        return DataNode::MakeString(std::string(reinterpret_cast<const char*>(p), len).c_str());
+        return DataNode::MakeString(reinterpret_cast<const char*>(p), len);
     }
 
     switch (b) {
@@ -248,7 +261,7 @@ static DataNode* read_node(Reader& r, int depth) {
             size_t len = r.read_u8();
             if (!r.has(len)) return nullptr;
             const uint8_t* p = r.read_bytes(len);
-            return DataNode::MakeString(std::string(reinterpret_cast<const char*>(p), len).c_str());
+            return DataNode::MakeString(reinterpret_cast<const char*>(p), len);
         }
         // str 16
         case 0xda: {
@@ -256,7 +269,7 @@ static DataNode* read_node(Reader& r, int depth) {
             size_t len = r.read_u16();
             if (!r.has(len)) return nullptr;
             const uint8_t* p = r.read_bytes(len);
-            return DataNode::MakeString(std::string(reinterpret_cast<const char*>(p), len).c_str());
+            return DataNode::MakeString(reinterpret_cast<const char*>(p), len);
         }
         // str 32
         case 0xdb: {
@@ -264,7 +277,7 @@ static DataNode* read_node(Reader& r, int depth) {
             size_t len = r.read_u32();
             if (!r.has(len)) return nullptr;
             const uint8_t* p = r.read_bytes(len);
-            return DataNode::MakeString(std::string(reinterpret_cast<const char*>(p), len).c_str());
+            return DataNode::MakeString(reinterpret_cast<const char*>(p), len);
         }
 
         // array 16

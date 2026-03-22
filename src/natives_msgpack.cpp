@@ -1,5 +1,7 @@
 #include <cstring>
 
+#include <climits>
+
 #include "smsdk_ext.h"
 #include "extension.h"
 #include "http_request.h"
@@ -32,7 +34,8 @@ static cell_t Native_MsgPackParse(IPluginContext* pContext, const cell_t* params
 // async2_MsgPackParseBuffer(const char[] data, int length) -> Json handle
 static cell_t Native_MsgPackParseBuffer(IPluginContext* pContext, const cell_t* params) {
     cell_t* data;
-    pContext->LocalToPhysAddr(params[1], &data);
+    if (pContext->LocalToPhysAddr(params[1], &data) != SP_ERROR_NONE)
+        return 0;
     int length = params[2];
     if (length <= 0)
         return 0;
@@ -65,7 +68,8 @@ static cell_t Native_MsgPackSerialize(IPluginContext* pContext, const cell_t* pa
         copy_len = static_cast<size_t>(maxlen);
 
     cell_t* out;
-    pContext->LocalToPhysAddr(params[2], &out);
+    if (pContext->LocalToPhysAddr(params[2], &out) != SP_ERROR_NONE)
+        return 0;
     memcpy(out, buf.data(), copy_len);
     return copy_len;
 }
@@ -89,10 +93,25 @@ static cell_t Native_SetBodyMsgPack(IPluginContext* pContext, const cell_t* para
     return 0;
 }
 
+// async2_MsgPackSetMaxElements(int limit)
+static cell_t Native_MsgPackSetMaxElements(IPluginContext* pContext, const cell_t* params) {
+    int limit = params[1];
+    MsgPackSetMaxElements(limit > 0 ? static_cast<size_t>(limit) : 1000000);
+    return 0;
+}
+
+// async2_MsgPackGetMaxElements() -> int
+static cell_t Native_MsgPackGetMaxElements(IPluginContext* pContext, const cell_t* params) {
+    size_t val = MsgPackGetMaxElements();
+    return static_cast<cell_t>(val > static_cast<size_t>(INT_MAX) ? INT_MAX : val);
+}
+
 sp_nativeinfo_t g_MsgPackNatives[] = {
-    {"async2_MsgPackParse",         Native_MsgPackParse},
-    {"async2_MsgPackParseBuffer",   Native_MsgPackParseBuffer},
-    {"async2_MsgPackSerialize",     Native_MsgPackSerialize},
-    {"async2_SetBodyMsgPack",       Native_SetBodyMsgPack},
-    {nullptr,                       nullptr},
+    {"async2_MsgPackParse",             Native_MsgPackParse},
+    {"async2_MsgPackParseBuffer",       Native_MsgPackParseBuffer},
+    {"async2_MsgPackSerialize",         Native_MsgPackSerialize},
+    {"async2_SetBodyMsgPack",           Native_SetBodyMsgPack},
+    {"async2_MsgPackSetMaxElements",    Native_MsgPackSetMaxElements},
+    {"async2_MsgPackGetMaxElements",    Native_MsgPackGetMaxElements},
+    {nullptr,                           nullptr},
 };

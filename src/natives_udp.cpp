@@ -57,7 +57,8 @@ static cell_t Native_UdpSend(IPluginContext* pContext, const cell_t* params) {
     if (!sock) return 0;
 
     cell_t* data_addr;
-    pContext->LocalToPhysAddr(params[2], &data_addr);
+    if (pContext->LocalToPhysAddr(params[2], &data_addr) != SP_ERROR_NONE)
+        return 0;
     int length = params[3];
     if (length <= 0) return 0;
 

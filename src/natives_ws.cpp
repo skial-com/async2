@@ -114,7 +114,8 @@ static cell_t Native_WsSendBinary(IPluginContext* pContext, const cell_t* params
     if (!conn) return 0;
 
     cell_t* addr;
-    pContext->LocalToPhysAddr(params[2], &addr);
+    if (pContext->LocalToPhysAddr(params[2], &addr) != SP_ERROR_NONE)
+        return 0;
     int length = params[3];
     if (length <= 0) return 0;
 
@@ -133,7 +134,8 @@ static cell_t Native_WsSendPing(IPluginContext* pContext, const cell_t* params) 
     if (!conn) return 0;
 
     cell_t* addr;
-    pContext->LocalToPhysAddr(params[2], &addr);
+    if (pContext->LocalToPhysAddr(params[2], &addr) != SP_ERROR_NONE)
+        return 0;
     int length = params[3];
     if (length > 125) length = 125;  // RFC 6455: control frames max 125 bytes
 

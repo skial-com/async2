@@ -252,10 +252,11 @@ static cell_t Native_GetHttpPoolStats(IPluginContext* pContext, const cell_t* pa
     cell_t* pending;
     cell_t* completed;
     cell_t* retries;
-    pContext->LocalToPhysAddr(params[1], &active);
-    pContext->LocalToPhysAddr(params[2], &pending);
-    pContext->LocalToPhysAddr(params[3], &completed);
-    pContext->LocalToPhysAddr(params[4], &retries);
+    if (pContext->LocalToPhysAddr(params[1], &active) != SP_ERROR_NONE ||
+        pContext->LocalToPhysAddr(params[2], &pending) != SP_ERROR_NONE ||
+        pContext->LocalToPhysAddr(params[3], &completed) != SP_ERROR_NONE ||
+        pContext->LocalToPhysAddr(params[4], &retries) != SP_ERROR_NONE)
+        return 0;
     *active = g_event_loop.stats_active.load(std::memory_order_relaxed);
     *pending = g_event_loop.stats_pending.load(std::memory_order_relaxed);
     *completed = g_event_loop.stats_completed.load(std::memory_order_relaxed);

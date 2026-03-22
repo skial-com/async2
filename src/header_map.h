@@ -7,6 +7,17 @@
 #include <string>
 #include <curl/curl.h>
 
+// Strip CR and LF characters from a string to prevent header injection.
+inline std::string StripCRLF(const std::string& s) {
+    std::string result;
+    result.reserve(s.size());
+    for (char c : s) {
+        if (c != '\r' && c != '\n')
+            result += c;
+    }
+    return result;
+}
+
 // Case-insensitive comparator for HTTP header keys (RFC 7230)
 struct HeaderCaseInsensitive {
     bool operator()(const std::string& a, const std::string& b) const {
@@ -30,13 +41,13 @@ inline void BuildHeaderSlist(HeaderMap& headers, std::mutex& mutex, curl_slist*&
     }
     std::lock_guard<std::mutex> lock(mutex);
     for (const auto& [key, value] : headers) {
-        std::string header = key + ": " + value;
+        std::string header = StripCRLF(key) + ": " + StripCRLF(value);
         built = curl_slist_append(built, header.c_str());
     }
     if (defaults) {
         for (const auto& [key, value] : *defaults) {
             if (headers.find(key) == headers.end()) {
-                std::string header = key + ": " + value;
+                std::string header = StripCRLF(key) + ": " + StripCRLF(value);
                 built = curl_slist_append(built, header.c_str());
             }
         }

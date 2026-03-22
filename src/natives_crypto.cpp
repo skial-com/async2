@@ -336,6 +336,8 @@ static cell_t Native_HexEncode(IPluginContext* pContext, const cell_t* params) {
     pContext->LocalToString(params[3], &output);
     int maxlen = params[4];
 
+    if (length > (INT_MAX - 1) / 2)
+        return 0;
     int needed = length * 2 + 1;
     if (maxlen < needed)
         return 0;

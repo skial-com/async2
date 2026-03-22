@@ -78,7 +78,8 @@ static cell_t Native_TcpSend(IPluginContext* pContext, const cell_t* params) {
     if (!sock) return 0;
 
     cell_t* addr;
-    pContext->LocalToPhysAddr(params[2], &addr);
+    if (pContext->LocalToPhysAddr(params[2], &addr) != SP_ERROR_NONE)
+        return 0;
     int length = params[3];
     if (length <= 0) return 0;
 
