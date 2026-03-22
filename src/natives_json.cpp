@@ -258,6 +258,49 @@ static cell_t Native_JsonParseString(IPluginContext* pContext, const cell_t* par
     return handle;
 }
 
+// async2_JsonParseFile(const char[] path) -> Json
+static cell_t Native_JsonParseFile(IPluginContext* pContext, const cell_t* params) {
+    char* path;
+    pContext->LocalToString(params[1], &path);
+
+    char fullpath[PLATFORM_MAX_PATH];
+    smutils->BuildPath(Path_Game, fullpath, sizeof(fullpath), "%s", path);
+
+    FILE* f = fopen(fullpath, "rb");
+    if (!f)
+        return 0;
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    if (size <= 0 || size > 64 * 1024 * 1024) {
+        fclose(f);
+        return 0;
+    }
+    fseek(f, 0, SEEK_SET);
+
+    char* buf = new char[size];
+    size_t read = fread(buf, 1, size, f);
+    fclose(f);
+
+    if (static_cast<long>(read) != size) {
+        delete[] buf;
+        return 0;
+    }
+
+    DataHandle* json = DataHandle::Parse(buf, read);
+    delete[] buf;
+
+    if (!json)
+        return 0;
+
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    if (handle == 0) {
+        delete json;
+        return 0;
+    }
+    return handle;
+}
+
 static cell_t Native_JsonCreateObject(IPluginContext* pContext, const cell_t* params) {
     DataHandle* json = DataHandle::CreateObject();
     if (!json)
@@ -1099,6 +1142,7 @@ static cell_t Native_JsonGetBuffer(IPluginContext* pContext, const cell_t* param
 sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_JsonParseResponse",        Native_JsonParse},
     {"async2_JsonParseString",          Native_JsonParseString},
+    {"async2_JsonParseFile",            Native_JsonParseFile},
     {"async2_JsonCreateObject",         Native_JsonCreateObject},
     {"async2_JsonCreateArray",          Native_JsonCreateArray},
     {"async2_JsonClose",                Native_JsonClose},

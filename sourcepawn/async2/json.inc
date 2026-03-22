@@ -22,6 +22,10 @@ native Json async2_JsonParseResponse(WebRequest httpHandle);
 // Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonParseString(const char[] str);
 
+// Parses a JSON file (path relative to game directory).
+// Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
+native Json async2_JsonParseFile(const char[] path);
+
 // Creates an empty JSON object ({}).
 // Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonCreateObject();
