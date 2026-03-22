@@ -52,8 +52,9 @@ done
 echo "=== Packaging ==="
 rm -rf build/package
 mkdir -p build/package/addons/sourcemod/extensions
-mkdir -p build/package/addons/sourcemod/scripting/include
+mkdir -p build/package/addons/sourcemod/scripting/include/async2
 cp sourcepawn/async2.inc build/package/addons/sourcemod/scripting/include/
+cp sourcepawn/async2/*.inc build/package/addons/sourcemod/scripting/include/async2/
 
 for arch in "${ARCHS[@]}"; do
     if [ "$arch" = "x86_64" ]; then

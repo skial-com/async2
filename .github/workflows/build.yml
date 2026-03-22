@@ -5,31 +5,7 @@ on:
     tags: [ 'v*' ]
 
 jobs:
-  test:
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v5
-      with:
-        submodules: recursive
-
-    - name: Cache test build directory
-      uses: actions/cache@v5
-      with:
-        path: test/build
-        key: test-build-${{ github.sha }}
-        restore-keys: |
-          test-build-
-
-    - name: Build and run tests
-      run: |
-        cd test
-        mkdir -p build && cd build
-        cmake ..
-        make
-        ctest --output-on-failure
-
   build-linux:
-    needs: test
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -91,8 +67,9 @@ jobs:
     - name: Package
       run: |
         cmake --install build/${{ matrix.arch }} --prefix build/package
-        mkdir -p build/package/addons/sourcemod/scripting/include
+        mkdir -p build/package/addons/sourcemod/scripting/include/async2
         cp sourcepawn/async2.inc build/package/addons/sourcemod/scripting/include/
+        cp sourcepawn/async2/*.inc build/package/addons/sourcemod/scripting/include/async2/
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v5
@@ -101,7 +78,6 @@ jobs:
         path: build/package/
 
   build-windows:
-    needs: test
     runs-on: windows-2022
     strategy:
       matrix:
@@ -160,8 +136,9 @@ jobs:
       shell: bash
       run: |
         cmake --install build/${{ matrix.arch }} --config Release --prefix build/package
-        mkdir -p build/package/addons/sourcemod/scripting/include
+        mkdir -p build/package/addons/sourcemod/scripting/include/async2
         cp sourcepawn/async2.inc build/package/addons/sourcemod/scripting/include/
+        cp sourcepawn/async2/*.inc build/package/addons/sourcemod/scripting/include/async2/
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v5

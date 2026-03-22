@@ -274,3 +274,4 @@ endif()
 
 install(TARGETS async2 LIBRARY DESTINATION ${EXT_INSTALL_DIR} RUNTIME DESTINATION ${EXT_INSTALL_DIR})
 install(FILES sourcepawn/async2.inc sourcepawn/async2_lru.inc DESTINATION addons/sourcemod/scripting/include)
+install(DIRECTORY sourcepawn/async2/ DESTINATION addons/sourcemod/scripting/include/async2 FILES_MATCHING PATTERN "*.inc")
