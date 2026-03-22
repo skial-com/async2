@@ -45,6 +45,16 @@ add_executable(test_msgpack
 target_include_directories(test_msgpack PRIVATE ${COMMON_INCLUDES} ${ROOT}/src/msgpack)
 add_test(NAME msgpack COMMAND test_msgpack)
 
+# HJSON tests
+add_executable(test_hjson
+    test_hjson.cpp
+    ${DATA_SRCS}
+    ${ROOT}/src/hjson/hjson_parse.cpp
+    ${SIMDJSON}
+)
+target_include_directories(test_hjson PRIVATE ${COMMON_INCLUDES} ${ROOT}/src/hjson)
+add_test(NAME hjson COMMAND test_hjson "${CMAKE_CURRENT_SOURCE_DIR}/hjson_assets")
+
 # DataNode benchmark (always available)
 add_executable(bench_datanode
     bench_datanode.cpp

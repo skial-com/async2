@@ -72,6 +72,8 @@ set(SOURCES
     src/natives_linkedlist.cpp
     src/natives_url.cpp
     src/natives_time.cpp
+    src/natives_hjson.cpp
+    src/hjson/hjson_parse.cpp
     src/msgpack/msgpack_parse.cpp
     src/msgpack/msgpack_serialize.cpp
     src/compile_time.cpp
@@ -133,6 +135,7 @@ target_include_directories(async2 PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/data
     ${CMAKE_SOURCE_DIR}/src/msgpack
+    ${CMAKE_SOURCE_DIR}/src/hjson
     ${CMAKE_SOURCE_DIR}/sdk
     ${CMAKE_SOURCE_DIR}/public
     ${CMAKE_SOURCE_DIR}/build_tmp/${ARCH}/prefix/include
