@@ -136,8 +136,9 @@ obj.Serialize(buf, sizeof(buf));
 //   parent.SetObject("b", child);         // moves child, child is now empty
 //
 // Do not create circular references (e.g. inserting a parent into its own
-// child via a child handle). JSON does not support cycles. smjansson has
-// the same limitation. Serialization is depth-limited to 128 as a safety net.
+// child via a child handle). JSON does not support cycles. Preventing cycles
+// by making a copy every time you SetObject is too much of a slow down.
+// smjansson has the same limitation. Serialization is depth-limited to 128 as a safety net.
 
 // Iterate object keys
 obj.ObjectIterReset();
