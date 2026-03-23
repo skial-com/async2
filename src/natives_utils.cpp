@@ -106,9 +106,19 @@ static cell_t Native_GetHandleCount(IPluginContext* pContext, const cell_t* para
     return static_cast<cell_t>(g_handle_manager.GetHandles().size());
 }
 
-// async2_SetHandlePlugin(int handle) -> int
+// async2_SetHandlePlugin(int handle, Handle plugin = INVALID_HANDLE) -> int
 static cell_t Native_SetHandlePlugin(IPluginContext* pContext, const cell_t* params) {
-    return g_handle_manager.TransferHandle(params[1], pContext) ? 1 : 0;
+    IPluginContext* target = pContext;
+
+    if (params[0] >= 2 && params[2] != 0) {
+        HandleError err;
+        IPlugin* plugin = plsys->PluginFromHandle(params[2], &err);
+        if (!plugin || err != HandleError_None)
+            return 0;
+        target = plugin->GetBaseContext();
+    }
+
+    return g_handle_manager.TransferHandle(params[1], target) ? 1 : 0;
 }
 
 // ===== Native table ========================================================

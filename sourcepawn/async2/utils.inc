@@ -202,12 +202,15 @@ native int async2_GetVss();
 native int async2_GetHandleCount();
 
 /**
- * Transfers cleanup ownership of a handle to the calling plugin.
- * When this plugin unloads, the handle will be cleaned up automatically.
+ * Transfers cleanup ownership of a handle to another plugin.
+ * When that plugin unloads, the handle will be cleaned up automatically.
  * Does not affect callbacks — HTTP/socket callbacks still fire into
  * the plugin that created the handle.
  *
  * @param handle    Any async2 handle (WebRequest, Json, TcpSocket, etc.).
- * @return          1 on success, 0 if handle is invalid or closed.
+ * @param plugin    Target plugin handle. INVALID_HANDLE = calling plugin.
+ *                  In CreateNative handlers, pass the callingPlugin parameter
+ *                  to transfer ownership to the caller.
+ * @return          1 on success, 0 if handle or plugin is invalid.
  */
-native int async2_SetHandlePlugin(int handle);
+native int async2_SetHandlePlugin(int handle, Handle plugin = INVALID_HANDLE);
