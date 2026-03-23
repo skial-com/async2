@@ -122,12 +122,22 @@ Json items = async2_JsonCreateArray();
 items.PushInt(1);
 items.PushInt(2);
 items.PushInt(3);
-obj.SetObject("items", items);
-items.Close();
+obj.SetObject("items", items);  // moves items into obj — items becomes null after this
+items.Close();                  // safe — just frees the null handle
 
 char buf[256];
 obj.Serialize(buf, sizeof(buf));
 // {"name":"player","score":100,"items":[1,2,3]}
+
+// SetObject/ArrayAppendObject use move semantics — the child is consumed
+// (emptied) after insertion. This avoids an expensive deep copy.
+// If you need the child to remain valid afterward, use .Copy():
+//   parent.SetObject("a", child.Copy());  // copies child, original stays valid
+//   parent.SetObject("b", child);         // moves child, child is now empty
+//
+// Do not create circular references (e.g. inserting a parent into its own
+// child via a child handle). JSON does not support cycles. smjansson has
+// the same limitation. Serialization is depth-limited to 128 as a safety net.
 
 // Iterate object keys
 obj.ObjectIterReset();

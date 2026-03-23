@@ -129,6 +129,42 @@ void DataNode::Destroy(DataNode* node) {
     g_pool.Free(node);
 }
 
+// ---------- StealFrom ----------
+// Moves contents from src into a new node, leaving src as Null (safe to Destroy).
+
+DataNode* DataNode::StealFrom(DataNode* src) {
+    auto* dst = new (g_pool.Alloc()) DataNode();
+    dst->type = src->type;
+    switch (src->type) {
+        case DataType::String:
+            new (&dst->str_val) std::string(std::move(src->str_val));
+            src->str_val.~basic_string();
+            break;
+        case DataType::Array:
+            new (&dst->arr) std::vector<DataNode*>(std::move(src->arr));
+            src->arr.~vector();
+            break;
+        case DataType::Object:
+            new (&dst->obj) DataMap<std::string, DataNode*>(std::move(src->obj));
+            { using ObjMap = DataMap<std::string, DataNode*>; src->obj.~ObjMap(); }
+            break;
+        case DataType::IntMap:
+            new (&dst->intmap) DataMap<int64_t, DataNode*>(std::move(src->intmap));
+            { using IntMapType = DataMap<int64_t, DataNode*>; src->intmap.~IntMapType(); }
+            break;
+        case DataType::Binary:
+            new (&dst->bin) std::vector<uint8_t>(std::move(src->bin));
+            src->bin.~vector();
+            break;
+        default:
+            dst->int_val = src->int_val;
+            break;
+    }
+    src->type = DataType::Null;
+    src->int_val = 0;
+    return dst;
+}
+
 // ---------- DeepCopy ----------
 
 DataNode* DataNode::DeepCopy() const {
@@ -642,13 +678,16 @@ static void serialize_leaf(const DataNode& node, std::string& out) {
     }
 }
 
-static void serialize_value(const DataNode& node, std::string& out) {
+static constexpr int kMaxSerializeDepth = 128;
+
+static void serialize_value(const DataNode& node, std::string& out, int depth = 0) {
+    if (depth > kMaxSerializeDepth) { out += "null"; return; }
     switch (node.type) {
         case DataType::Array:
             out += '[';
             for (size_t i = 0; i < node.arr.size(); i++) {
                 if (i > 0) out += ',';
-                serialize_value(*node.arr[i], out);
+                serialize_value(*node.arr[i], out, depth + 1);
             }
             out += ']';
             break;
@@ -660,7 +699,7 @@ static void serialize_value(const DataNode& node, std::string& out) {
                 first = false;
                 serialize_string(key, out);
                 out += ':';
-                serialize_value(*val, out);
+                serialize_value(*val, out, depth + 1);
             }
             out += '}';
             break;
@@ -672,6 +711,7 @@ static void serialize_value(const DataNode& node, std::string& out) {
 }
 
 static void serialize_value_pretty(const DataNode& node, std::string& out, int depth) {
+    if (depth > kMaxSerializeDepth) { out += "null"; return; }
     switch (node.type) {
         case DataType::Array: {
             if (node.arr.empty()) {

@@ -227,11 +227,6 @@ void DataHandle::IntMapSetNull(int64_t key) {
     node->IntMapInsert(key, DataNode::MakeNull());
 }
 
-void DataHandle::IntMapSetObject(int64_t key, const DataNode* child) {
-    if (!node || node->type != DataType::IntMap || !child) return;
-    node->IntMapInsert(key, child->DeepCopy());
-}
-
 // IntMap mutation
 bool DataHandle::IntMapRemoveKey(int64_t key) {
     if (!node) return false;
@@ -329,11 +324,6 @@ void DataHandle::ArraySetNull(size_t index) {
     node->ArrSet(index, DataNode::MakeNull());
 }
 
-void DataHandle::ArraySetObject(size_t index, const DataNode* child) {
-    if (!node || !child) return;
-    node->ArrSet(index, child->DeepCopy());
-}
-
 void DataHandle::ArrayClear() {
     if (!node) return;
     node->ArrClear();
@@ -370,11 +360,6 @@ void DataHandle::SetNull(const char* key) {
     node->ObjInsert(key, DataNode::MakeNull());
 }
 
-void DataHandle::SetObject(const char* key, const DataNode* child) {
-    if (!node || node->type != DataType::Object || !child) return;
-    node->ObjInsert(key, child->DeepCopy());
-}
-
 // Array append
 void DataHandle::ArrayAppendString(const char* val) {
     if (!node || node->type != DataType::Array) return;
@@ -399,11 +384,6 @@ void DataHandle::ArrayAppendBool(bool val) {
 void DataHandle::ArrayAppendNull() {
     if (!node || node->type != DataType::Array) return;
     node->arr.push_back(DataNode::MakeNull());
-}
-
-void DataHandle::ArrayAppendObject(const DataNode* child) {
-    if (!node || node->type != DataType::Array || !child) return;
-    node->arr.push_back(child->DeepCopy());
 }
 
 // Object iterator

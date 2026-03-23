@@ -155,16 +155,16 @@ void Test_IntObject_SetGetArray() {
     map.Close();
 }
 
-void Test_IntObject_SetObject_DeepCopy() {
+void Test_IntObject_SetObject_Move() {
     IntObject map = IntObject.Create();
     Json child = Json.CreateObject();
     child.SetInt("val", 1);
     map.SetObject(1, child);
 
-    // Mutate source after SetObject — map should be unaffected
-    child.SetInt("val", 999);
+    // Child is now null after move
+    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "IntObject SetObject moves child");
     Json got = map.GetObject(1);
-    AssertEq(got.GetInt("val"), 1, "IntObject SetObject is deep copy");
+    AssertEq(got.GetInt("val"), 1, "IntObject SetObject data accessible");
     got.Close();
     child.Close();
     map.Close();
@@ -661,7 +661,7 @@ void RunIntMapTests() {
     Test_IntObject_Clear();
     Test_IntObject_SetGetObject();
     Test_IntObject_SetGetArray();
-    Test_IntObject_SetObject_DeepCopy();
+    Test_IntObject_SetObject_Move();
     Test_IntObject_Iterator();
     Test_IntObject_IteratorEmpty();
     Test_IntObject_MergeNew();

@@ -121,33 +121,33 @@ void Test_ArrayOfObjects() {
     arr.ArrayAppendObject(child);
     AssertEq(arr.ArrayLength, 1, "Array length after AppendObject");
 
-    // Deep copy: mutating child should not affect the appended copy
-    child.SetString("name", "changed");
+    // Move: child is now null after append
+    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child null after ArrayAppendObject");
 
     Json got = arr.ArrayGetObject(0);
     Assert(view_as<int>(got) != 0, "ArrayGetObject returns non-zero");
     char buf[64];
     got.GetString("name", buf, sizeof(buf));
-    AssertStrEq(buf, "test", "ArrayAppendObject is deep copy");
+    AssertStrEq(buf, "test", "ArrayAppendObject moves data");
 
     got.Close();
     child.Close();
     arr.Close();
 }
 
-void Test_SetObject_DeepCopy() {
+void Test_SetObject_Move() {
     Json parent = Json.CreateObject();
     Json child = Json.CreateObject();
     child.SetInt("val", 10);
 
     parent.SetObject("child", child);
 
-    // Mutate original child — should not affect the copy in parent
-    child.SetInt("val", 999);
+    // Child is now null after move
+    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child null after SetObject");
 
     Json got = parent.GetObject("child");
     Assert(view_as<int>(got) != 0, "SetObject child retrievable");
-    AssertEq(got.GetInt("val"), 10, "SetObject is deep copy");
+    AssertEq(got.GetInt("val"), 10, "SetObject moves data");
 
     got.Close();
     child.Close();
@@ -747,7 +747,7 @@ void RunJsonTests() {
     Test_OverwriteKey();
     Test_ArrayAppendAndGet();
     Test_ArrayOfObjects();
-    Test_SetObject_DeepCopy();
+    Test_SetObject_Move();
     Test_GetObject_Shallow();
     Test_GetArray_Shallow();
     Test_GetObject_MissingKey();

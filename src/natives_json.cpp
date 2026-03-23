@@ -525,14 +525,15 @@ static cell_t Native_JsonSetNull(IPluginContext* pContext, const cell_t* params)
 
 static cell_t Native_JsonSetObject(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
+    if (params[1] == params[3])
+        return pContext->ThrowNativeError("Cannot SetObject with self as child");
     char* key;
     pContext->LocalToString(params[2], &key);
 
     DataHandle* child = g_handle_manager.GetDataHandle(params[3]);
     if (!child)
         return 0;
-
-    json->SetObject(key, child->node);
+    json->node->ObjInsert(key, DataNode::StealFrom(child->node));
     return 0;
 }
 
@@ -607,10 +608,12 @@ static cell_t Native_JsonArraySetNull(IPluginContext* pContext, const cell_t* pa
 
 static cell_t Native_JsonArraySetObject(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
+    if (params[1] == params[3])
+        return pContext->ThrowNativeError("Cannot ArraySetObject with self as child");
     DataHandle* child = g_handle_manager.GetDataHandle(params[3]);
     if (!child)
         return 0;
-    json->ArraySetObject(params[2], child->node);
+    json->node->ArrSet(params[2], DataNode::StealFrom(child->node));
     return 0;
 }
 
@@ -672,10 +675,12 @@ static cell_t Native_JsonArrayAppendNull(IPluginContext* pContext, const cell_t*
 
 static cell_t Native_JsonArrayAppendObject(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
+    if (params[1] == params[2])
+        return pContext->ThrowNativeError("Cannot ArrayAppendObject with self as child");
     DataHandle* child = g_handle_manager.GetDataHandle(params[2]);
     if (!child)
         return 0;
-    json->ArrayAppendObject(child->node);
+    json->node->arr.push_back(DataNode::StealFrom(child->node));
     return 0;
 }
 
@@ -982,11 +987,13 @@ static cell_t Native_IntMapSetNull(IPluginContext* pContext, const cell_t* param
 
 static cell_t Native_IntMapSetObject(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
+    if (params[1] == params[3])
+        return pContext->ThrowNativeError("Cannot SetObject with self as child");
     int64_t key = static_cast<int64_t>(params[2]);
     DataHandle* child = g_handle_manager.GetDataHandle(params[3]);
     if (!child)
         return 0;
-    json->IntMapSetObject(key, child->node);
+    json->node->IntMapInsert(key, DataNode::StealFrom(child->node));
     return 0;
 }
 
@@ -1038,11 +1045,13 @@ static cell_t Native_IntMapSetNull64(IPluginContext* pContext, const cell_t* par
 
 static cell_t Native_IntMapSetObject64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
+    if (params[1] == params[3])
+        return pContext->ThrowNativeError("Cannot SetObject with self as child");
     int64_t key = ReadInt64Param(pContext, params[2]);
     DataHandle* child = g_handle_manager.GetDataHandle(params[3]);
     if (!child)
         return 0;
-    json->IntMapSetObject(key, child->node);
+    json->node->IntMapInsert(key, DataNode::StealFrom(child->node));
     return 0;
 }
 

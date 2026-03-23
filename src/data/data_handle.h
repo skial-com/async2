@@ -86,7 +86,6 @@ public:
     void IntMapSetFloat(int64_t key, double val);
     void IntMapSetBool(int64_t key, bool val);
     void IntMapSetNull(int64_t key);
-    void IntMapSetObject(int64_t key, const DataNode* child);
 
     // IntMap mutation
     bool IntMapRemoveKey(int64_t key);
@@ -106,7 +105,6 @@ public:
     void SetFloat(const char* key, double val);
     void SetBool(const char* key, bool val);
     void SetNull(const char* key);
-    void SetObject(const char* key, const DataNode* child);
 
     // Object mutation
     bool RemoveKey(const char* key);
@@ -120,7 +118,6 @@ public:
     void ArraySetFloat(size_t index, double val);
     void ArraySetBool(size_t index, bool val);
     void ArraySetNull(size_t index);
-    void ArraySetObject(size_t index, const DataNode* child);
     void ArrayClear();
     void ArrayExtend(const DataNode* other);
 
@@ -130,7 +127,6 @@ public:
     void ArrayAppendFloat(double val);
     void ArrayAppendBool(bool val);
     void ArrayAppendNull();
-    void ArrayAppendObject(const DataNode* child);
 
     // Serialize
     bool Serialize(char* buf, size_t maxlen, bool pretty = false) const;

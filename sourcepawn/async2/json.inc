@@ -139,8 +139,10 @@ native int async2_JsonSetFloat(Json jsonHandle, const char[] key, float value);
 native int async2_JsonSetBool(Json jsonHandle, const char[] key, bool value);
 native int async2_JsonSetNull(Json jsonHandle, const char[] key);
 
-// Deep copy: copies the child tree into this object under key.
-// The child handle is NOT consumed — caller must close it separately.
+// Moves the child tree into this object under key. The child is consumed —
+// it becomes null after this call (Close is safe but reads return null/0).
+// If you need the child afterward, use SetObject(key, child.Copy()).
+// Self-insert (same handle as parent and child) is a no-op.
 native int async2_JsonSetObject(Json jsonHandle, const char[] key, Json childHandle);
 
 // Removes a key from an object. Returns true if the key was found and removed.
@@ -169,7 +171,7 @@ native int async2_JsonArraySetInt64(Json jsonHandle, int index, int val[2]);
 native int async2_JsonArraySetFloat(Json jsonHandle, int index, float value);
 native int async2_JsonArraySetBool(Json jsonHandle, int index, bool value);
 native int async2_JsonArraySetNull(Json jsonHandle, int index);
-// Deep copy: copies the child into this array slot.
+// Moves the child into this array slot. The child is consumed (see SetObject).
 native int async2_JsonArraySetObject(Json jsonHandle, int index, Json childHandle);
 
 // Removes all elements from an array.
@@ -188,8 +190,7 @@ native int async2_JsonArrayAppendInt64(Json jsonHandle, int val[2]);
 native int async2_JsonArrayAppendFloat(Json jsonHandle, float value);
 native int async2_JsonArrayAppendBool(Json jsonHandle, bool value);
 native int async2_JsonArrayAppendNull(Json jsonHandle);
-// Deep copy: copies the child and appends it to this array. The child handle is not consumed —
-// caller still owns it and must close it separately.
+// Moves the child and appends it to this array. The child is consumed (see SetObject).
 native int async2_JsonArrayAppendObject(Json jsonHandle, Json childHandle);
 
 // Recursively compares two JSON values for equality.
