@@ -14,6 +14,7 @@ Windows and Linux support, both x86 and x64. Any engine.
 - **UDP** — async datagram sockets
 - **WebSocket** — async client with TLS, message reassembly, auto-ping, auto-reconnect with exponential backoff
 - **DNS** — async resolution for TCP/UDP with caching and configurable timeouts
+- **HJSON** — parse config files with comments, unquoted keys/values, multiline strings. AVX2-accelerated with scalar fallback.
 - **Crypto** — Base64, hex, SHA-256, SHA-1, MD5, CRC32, HMAC
 
 All I/O runs on a background thread (libuv). Callbacks fire on the game thread.
@@ -134,12 +135,48 @@ while (obj.ObjectIterNext(key, sizeof(key))) {
 }
 obj.Close();
 
-// Parse and deep access
+// Parse from string or file
 Json data = Json.ParseString("{\"users\":[{\"id\":1,\"name\":\"alice\"}]}");
+// Json data = async2_JsonParseFile("addons/sourcemod/data/mydata.json");
 char name[64];
 async2_JsonPathGetString(data, "users", 0, "name", name, sizeof(name));
 // name = "alice"
 data.Close();
+```
+
+### HJSON
+
+Parse config files with comments, unquoted keys, and multiline strings. Returns a standard `Json` handle.
+
+```sourcepawn
+// Parse from file (path relative to game directory)
+Json cfg = async2_HjsonParseFile("addons/sourcemod/configs/myconfig.hjson");
+if (cfg == null) {
+    PrintToServer("Failed to parse config");
+    return;
+}
+
+char host[64];
+cfg.GetString("host", host, sizeof(host));
+int port = cfg.GetInt("port");
+bool debug = cfg.GetBool("debug");
+cfg.Close();
+```
+
+Example `myconfig.hjson`:
+
+```hjson
+# Server settings
+host: 127.0.0.1
+port: 27015
+debug: true
+
+// Multiline strings
+motd:
+  '''
+  Welcome to the server!
+  Have fun and play fair.
+  '''
 ```
 
 ### TCP Client
