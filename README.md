@@ -4,6 +4,10 @@ The last networking extension you will need for sourcemod hopefully.
 
 Windows and Linux support, both x86 and x64. Any engine.
 
+## CURRENTLY IN ALPHA
+
+The Json API is currently being changed to make it as perfect as possible. DO NOT USE IN production. This message will be removed when the API is stable.
+
 ## Features
 
 - **HTTP/S** — requests with HTTP/2, HTTPS, automatic decompression (gzip/brotli), retry with exponential backoff, connection pooling
