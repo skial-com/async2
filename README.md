@@ -144,7 +144,7 @@ async2_JsonPathGetString(data, "users", 0, "name", name, sizeof(name));
 data.Close();
 ```
 
-### HJSON
+### [HJSON](https://hjson.github.io/)
 
 Parse config files with comments, unquoted keys, and multiline strings. Returns a standard `Json` handle.
 
