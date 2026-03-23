@@ -441,11 +441,13 @@ void EventLoop::OnAsyncAdd(uv_async_t* handle) {
     while (!self->pending_queue.Empty()) {
         HttpRequest* req = self->pending_queue.Pop();
         self->stats_pending.fetch_sub(1, std::memory_order_relaxed);
+        self->active_http_requests_.insert(req);
         if (req->handle_closed) {
             // Closed before we picked it up — never added to curl_multi
             req->completed = true;
             req->OnCompleted();
             self->stats_completed.fetch_add(1, std::memory_order_relaxed);
+            self->active_http_requests_.erase(req);
             self->done_queue.Lock();
             self->done_queue.Push(req);
             self->done_queue.Unlock();
@@ -481,9 +483,9 @@ void EventLoop::OnAsyncCancel(uv_async_t* handle) {
     self->cancel_queue.Lock();
     while (!self->cancel_queue.Empty()) {
         HttpRequest* req = self->cancel_queue.Pop();
-        // Already completed or already handled by OnAsyncAdd — skip.
-        // Both callbacks run on the event thread so no interleaving is possible.
-        if (req->completed)
+        // Already completed and handed to game thread (which may have freed it) — skip.
+        // Validate via active set instead of dereferencing the potentially-freed pointer.
+        if (self->active_http_requests_.find(req) == self->active_http_requests_.end())
             continue;
         if (req->in_retry_wait) {
             // Stop and close the retry timer to prevent use-after-free
@@ -507,6 +509,7 @@ void EventLoop::OnAsyncCancel(uv_async_t* handle) {
         req->in_retry_wait = false;
         req->OnCompleted();
         self->stats_completed.fetch_add(1, std::memory_order_relaxed);
+        self->active_http_requests_.erase(req);
         self->done_queue.Lock();
         self->done_queue.Push(req);
         self->done_queue.Unlock();
@@ -545,13 +548,15 @@ void EventLoop::CheckCompletedJobs() {
                 // DO NOT curl_multi_remove_handle — handle must stay in multi per curl docs
 
                 if (conn->handle_closed) {
+                    // Build event BEFORE cleanup — game thread may free conn after push
+                    auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+                        conn->plugin_context, conn->on_close, conn->userdata, true);
                     curl_multi_remove_handle(curl_multi_, easy);
                     curl_easy_cleanup(easy);
                     conn->curl_handle = nullptr;
                     conn->state = WsState::CLOSED;
-                    PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-                        conn->plugin_context, conn->on_close, conn->userdata, true));
                     ws_connections_.erase(conn->handle_id);
+                    PushSocketEvent(evt);
                     continue;
                 }
 
@@ -664,6 +669,7 @@ void EventLoop::CheckCompletedJobs() {
             request->completed = true;
             request->OnCompleted();
             stats_completed.fetch_add(1, std::memory_order_relaxed);
+            active_http_requests_.erase(request);
             done_queue.Lock();
             done_queue.Push(request);
             done_queue.Unlock();
@@ -1524,11 +1530,12 @@ void EventLoop::ProcessWsClose(WsOp* op) {
 
     // Cancel pending reconnect
     if (conn->state == WsState::RECONNECTING) {
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         WsStopTimers(conn);
-        PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load()));
         conn->state = WsState::CLOSED;
         ws_connections_.erase(conn->handle_id);
+        PushSocketEvent(evt);
         return;
     }
 
@@ -1557,9 +1564,10 @@ void EventLoop::ProcessWsClose(WsOp* op) {
                         conn->close_timeout * 1000, 0);
     } else {
         // Not connected yet or no poll handle — just clean up
-        PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load()));
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         WsCleanup(conn);
+        PushSocketEvent(evt);
     }
 }
 
@@ -1602,9 +1610,12 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
     WsConnection* conn = static_cast<WsConnection*>(handle->data);
     EventLoop* self = static_cast<EventLoop*>(handle->loop->data);
     if (conn->handle_closed) {
-        self->PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, true));
+        // Build event BEFORE cleanup — WsCleanup erases conn from ws_connections_,
+        // and after PushSocketEvent the game thread may free conn immediately.
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, true);
         self->WsCleanup(conn);
+        self->PushSocketEvent(evt);
         return;
     }
 
@@ -1699,9 +1710,10 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             size_t sent;
             curl_ws_send(conn->curl_handle, close_data, 2, &sent, 0, CURLWS_CLOSE);
             conn->close_sent_ = true;
-            self->PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-                conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load()));
+            auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+                conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
             self->WsCleanup(conn);
+            self->PushSocketEvent(evt);
             return;
         }
 
@@ -1762,9 +1774,10 @@ void EventLoop::OnWsCloseTimeout(uv_timer_t* handle) {
         delete reinterpret_cast<uv_timer_t*>(h);
     });
 
-    self->PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-        conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load()));
+    auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+        conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
     self->WsCleanup(conn);
+    self->PushSocketEvent(evt);
 }
 
 void EventLoop::OnWsPingTimer(uv_timer_t* handle) {
@@ -1821,9 +1834,10 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn) {
     if (WsShouldReconnect(conn)) {
         WsStartReconnect(conn);
     } else {
-        PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load()));
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         WsCleanup(conn);
+        PushSocketEvent(evt);
     }
 }
 
@@ -1835,8 +1849,8 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn, int error_code, cons
             conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         evt->error_code = error_code;
         evt->error_msg = error_msg;
-        PushSocketEvent(evt);
         WsCleanup(conn);
+        PushSocketEvent(evt);
     }
 }
 
@@ -1896,10 +1910,11 @@ void EventLoop::WsReconnect(WsConnection* conn) {
         PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
             conn->plugin_context, conn->on_error, conn->userdata, false,
             -1, "curl_easy_init failed during reconnect"));
-        PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, false));
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, false);
         conn->state = WsState::CLOSED;
         ws_connections_.erase(conn->handle_id);
+        PushSocketEvent(evt);
     }
 }
 
@@ -1914,10 +1929,11 @@ void EventLoop::OnWsReconnectTimer(uv_timer_t* handle) {
     conn->reconnect_timer_ = nullptr;
     
     if (conn->handle_closed) {
-        self->PushSocketEvent(MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
-            conn->plugin_context, conn->on_close, conn->userdata, true));
+        auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
+            conn->plugin_context, conn->on_close, conn->userdata, true);
         conn->state = WsState::CLOSED;
         self->ws_connections_.erase(conn->handle_id);
+        self->PushSocketEvent(evt);
         return;
     }
 

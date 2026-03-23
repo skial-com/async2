@@ -102,6 +102,7 @@ private:
     std::unordered_map<int, WsConnection*> ws_connections_;
     std::unordered_set<CURL*> ws_curl_handles_;
     std::unordered_set<CURL*> http_curl_handles_;  // in-flight HTTP easy handles in curl_multi
+    std::unordered_set<HttpRequest*> active_http_requests_;  // all HTTP reqs known to event thread
     std::unordered_set<uv_timer_t*> retry_timers_;
     std::unordered_set<uv_timer_t*> ws_reconnect_timers_;
 
