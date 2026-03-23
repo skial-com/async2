@@ -116,3 +116,20 @@ public Extension:__ext_async2 = {
     required = 0,
 #endif
 }
+
+// Natives added after v1.0 — marked optional so plugins compiled against
+// newer includes still load on older extensions (that lack these natives).
+// Calling an unresolved optional native will ThrowNativeError at runtime.
+public void __ext_async2_SetNTVOptional()
+{
+    // v1.1: HJSON
+    MarkNativeAsOptional("async2_HjsonParseString");
+    MarkNativeAsOptional("async2_HjsonParseFile");
+
+    // v1.1: JSON file parsing
+    MarkNativeAsOptional("async2_JsonParseFile");
+
+    // v1.1: MsgPack limits
+    MarkNativeAsOptional("async2_MsgPackSetMaxElements");
+    MarkNativeAsOptional("async2_MsgPackGetMaxElements");
+}
