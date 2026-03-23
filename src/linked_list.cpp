@@ -144,6 +144,17 @@ int LinkedList::Size() const {
     return static_cast<int>(nodes_.size());
 }
 
+LinkedList* LinkedList::DeepCopy() const {
+    LinkedList* copy = new LinkedList();
+    copy->nodes_.reserve(nodes_.size());
+    Node* cur = sentinel_.next;
+    while (cur != &sentinel_) {
+        copy->PushBack(cur->value);
+        cur = cur->next;
+    }
+    return copy;
+}
+
 void LinkedList::Clear() {
     Node* node = sentinel_.next;
     while (node != &sentinel_) {

@@ -11,7 +11,7 @@ extern EventLoop g_event_loop;
 // async2_TcpNew(any userdata = 0) -> TcpSocket
 static cell_t Native_TcpNew(IPluginContext* pContext, const cell_t* params) {
     auto* sock = new TcpSocket(pContext, params[1]);
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(sock), HANDLE_TCP_SOCKET);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(sock), HANDLE_TCP_SOCKET, pContext);
     if (handle == 0) {
         delete sock;
         return 0;

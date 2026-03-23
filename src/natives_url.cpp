@@ -136,7 +136,7 @@ static cell_t Native_QueryStringParse(IPluginContext* pContext, const cell_t* pa
         curl_free(dec_val);
     }
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) { delete json; return 0; }
     return handle;
 }

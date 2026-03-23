@@ -243,18 +243,42 @@ void OnWsClose(WsSocket ws, int code, const char[] reason, any userdata)
 
 ### Important: Handles
 
-async2 types (`WebRequest`, `Json`, `TcpSocket`, `UdpSocket`, `WsSocket`) are **not** SourceMod handles. They use an internal handle manager to bypass Sourcemod's very limited handle count.
+async2 types (`WebRequest`, `Json`, `TcpSocket`, `UdpSocket`, `WsSocket`, `LinkedList`) are **not** SourceMod handles. They use an internal handle manager to bypass Sourcemod's very limited handle count.
 
-Do not pass them to `CloseHandle()`, `delete`, or any API expecting a `Handle`. Always use the type's own `.Close()` method. Unloading plugins will close any handles they created. Unloading the extension will close all handles.
+Do not pass them to `CloseHandle()`, `delete`, or any API expecting a `Handle`. Always use the type's own `.Close()` method. When a plugin unloads, all handles it created are automatically cleaned up. Unloading the extension will close all handles.
+
+To pass a handle to another plugin, the receiving plugin should call `async2_SetHandlePlugin` to take cleanup ownership. Without this, the handle is freed when the original plugin unloads. For Json and LinkedList, `.Copy()` creates an independent deep copy owned by the calling plugin.
 
 ```sourcepawn
-WsSocket g_ws = null;
+// proper cleanup
+WsSocket g_ws = new WsSocket;
 
-// later...
-if (g_ws != null) {
+if (g_ws != null) 
+{
     g_ws.Close();
     g_ws = null;
 }
+
+// passing a handle to another plugin so it doesn't close when we close
+// but closes when they close
+
+public int Native_TransferJson(Handle callingPlugin, int numParams)
+{
+    Json data = g_json;
+    g_json = null; // we shouldn't be using the handle here since we're giving it to another plugin
+    async2_SetHandlePlugin(data, callingPlugin);
+    return view_as<int>(data);
+}
+
+// copying the handle so both plugins can use it
+
+public int Native_CopyJson(Handle callingPlugin, int numParams)
+{
+    Json copy = g_json.Copy();
+    async2_SetHandlePlugin(copy, callingPlugin);
+    return view_as<int>(copy);
+}
+
 ```
 
 ### Coming from async

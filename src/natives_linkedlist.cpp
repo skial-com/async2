@@ -4,7 +4,7 @@
 // async2_LinkedListCreate()
 static cell_t Native_LinkedListCreate(IPluginContext* pContext, const cell_t* params) {
     LinkedList* list = new LinkedList();
-    int handle = g_handle_manager.CreateHandle(list, HANDLE_LINKED_LIST);
+    int handle = g_handle_manager.CreateHandle(list, HANDLE_LINKED_LIST, pContext);
     if (handle == 0) {
         delete list;
         return 0;
@@ -115,6 +115,16 @@ static cell_t Native_LinkedListPrev(IPluginContext* pContext, const cell_t* para
     return static_cast<cell_t>(list->Prev(static_cast<uint32_t>(params[2])));
 }
 
+// async2_LinkedListCopy(LinkedList handle) -> LinkedList
+static cell_t Native_LinkedListCopy(IPluginContext* pContext, const cell_t* params) {
+    GET_LINKED_LIST()
+    LinkedList* copy = list->DeepCopy();
+    if (!copy) return 0;
+    int handle = g_handle_manager.CreateHandle(copy, HANDLE_LINKED_LIST, pContext);
+    if (handle == 0) { delete copy; return 0; }
+    return handle;
+}
+
 sp_nativeinfo_t g_LinkedListNatives[] = {
     {"async2_LinkedListCreate",      Native_LinkedListCreate},
     {"async2_LinkedListClose",       Native_LinkedListClose},
@@ -133,5 +143,6 @@ sp_nativeinfo_t g_LinkedListNatives[] = {
     {"async2_LinkedListLast",        Native_LinkedListLast},
     {"async2_LinkedListNext",        Native_LinkedListNext},
     {"async2_LinkedListPrev",        Native_LinkedListPrev},
+    {"async2_LinkedListCopy",        Native_LinkedListCopy},
     {nullptr,                        nullptr},
 };

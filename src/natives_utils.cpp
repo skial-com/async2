@@ -106,12 +106,18 @@ static cell_t Native_GetHandleCount(IPluginContext* pContext, const cell_t* para
     return static_cast<cell_t>(g_handle_manager.GetHandles().size());
 }
 
+// async2_SetHandlePlugin(int handle) -> int
+static cell_t Native_SetHandlePlugin(IPluginContext* pContext, const cell_t* params) {
+    return g_handle_manager.TransferHandle(params[1], pContext) ? 1 : 0;
+}
+
 // ===== Native table ========================================================
 
 sp_nativeinfo_t g_UtilsNatives[] = {
-    {"async2_GetTime",        Native_GetTime},
-    {"async2_GetRss",         Native_GetRss},
-    {"async2_GetVss",         Native_GetVss},
-    {"async2_GetHandleCount", Native_GetHandleCount},
-    {nullptr,                 nullptr},
+    {"async2_GetTime",            Native_GetTime},
+    {"async2_GetRss",             Native_GetRss},
+    {"async2_GetVss",             Native_GetVss},
+    {"async2_GetHandleCount",     Native_GetHandleCount},
+    {"async2_SetHandlePlugin",    Native_SetHandlePlugin},
+    {nullptr,                     nullptr},
 };

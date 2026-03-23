@@ -2,8 +2,13 @@
 #define ASYNC2_HANDLE_MANAGER_H
 
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
+#include <vector>
 #include <limits>
+
+namespace SourcePawn { class IPluginContext; }
+using SourcePawn::IPluginContext;
 
 class HttpRequest;
 class DataHandle;
@@ -25,6 +30,7 @@ enum HandleType {
 struct Handle {
     HandleType type;
     void* pointer;
+    IPluginContext* owner = nullptr;  // cleanup ownership only; callbacks use the object's plugin_context
     bool closed = false;
 };
 
@@ -34,6 +40,7 @@ class HandleManager {
     int next_handle_;
     std::queue<int> freed_handles_;
     HandleMapType used_handles_;
+    std::unordered_map<IPluginContext*, std::unordered_set<int>> plugin_handles_;
 
 public:
     HandleManager();
@@ -44,13 +51,16 @@ public:
     UdpSocket* GetUdpSocket(int handle);
     WsConnection* GetWsSocket(int handle);
     LinkedList* GetLinkedList(int handle);
-    int CreateHandle(void* pointer, HandleType type);
+    int CreateHandle(void* pointer, HandleType type, IPluginContext* owner = nullptr);
     void FreeHandle(int handle);
     void MarkHandleClosed(int handle);
+    bool TransferHandle(int handle, IPluginContext* new_owner);
+    std::vector<std::pair<int, Handle>> TakePluginHandles(IPluginContext* ctx);
 
     const HandleMapType& GetHandles() const { return used_handles_; }
 
 private:
+    void RemoveFromPluginSet(IPluginContext* owner, int handle);
     void DeleteHandlePointer(Handle h);
 };
 

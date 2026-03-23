@@ -68,6 +68,11 @@ native LinkedListNode async2_LinkedListNext(LinkedList handle, LinkedListNode no
 // Returns the previous node's ID, or INVALID_LINKED_LIST_NODE at start.
 native LinkedListNode async2_LinkedListPrev(LinkedList handle, LinkedListNode node);
 
+// Creates an independent deep copy of the linked list.
+// The new list is owned by the calling plugin. Must be closed with async2_LinkedListClose.
+// Node IDs in the copy are independent from the original.
+native LinkedList async2_LinkedListCopy(LinkedList handle);
+
 methodmap LinkedList < Handle {
     public static LinkedList Create() {
         return view_as<LinkedList>(async2_LinkedListCreate());
@@ -135,5 +140,9 @@ methodmap LinkedList < Handle {
 
     public LinkedListNode Prev(LinkedListNode node) {
         return async2_LinkedListPrev(this, node);
+    }
+
+    public LinkedList Copy() {
+        return view_as<LinkedList>(async2_LinkedListCopy(this));
     }
 }

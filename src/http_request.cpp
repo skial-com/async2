@@ -245,7 +245,7 @@ void HttpRequest::OnCompletedGameThread() {
         if (node) {
             DataHandle* dh = new DataHandle(node);
             json_handle = g_handle_manager.CreateHandle(
-                static_cast<void*>(dh), HANDLE_JSON_VALUE);
+                static_cast<void*>(dh), HANDLE_JSON_VALUE, plugin_context);
             if (json_handle == 0) delete dh;
         }
 

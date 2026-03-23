@@ -127,6 +127,7 @@ public Action Timer_FinishAll(Handle timer) {
 #include "test_linkedlist.sp"
 #include "test_lru_cache.sp"
 #include "test_time.sp"
+#include "test_handles.sp"
 
 // ============================================================================
 // Runners
@@ -148,6 +149,7 @@ public Action Command_RunJsonTests(int args) {
     RunLinkedListTests();
     RunLruCacheTests();
     RunTimeTests();
+    RunHandleTests();
 
     PrintToServer("========================================");
     PrintToServer("  Results: %d passed, %d failed", g_passed, g_failed);
@@ -236,6 +238,7 @@ public Action Command_RunAllTests(int args) {
     RunLinkedListTests();
     RunLruCacheTests();
     RunTimeTests();
+    RunHandleTests();
     RunHttpTests();
     RunTcpTests();
     RunUdpTests();

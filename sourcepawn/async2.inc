@@ -132,4 +132,8 @@ public void __ext_async2_SetNTVOptional()
     // v1.1: MsgPack limits
     MarkNativeAsOptional("async2_MsgPackSetMaxElements");
     MarkNativeAsOptional("async2_MsgPackGetMaxElements");
+
+    // Handle ownership
+    MarkNativeAsOptional("async2_SetHandlePlugin");
+    MarkNativeAsOptional("async2_LinkedListCopy");
 }

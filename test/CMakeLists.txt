@@ -45,6 +45,14 @@ add_executable(test_msgpack
 target_include_directories(test_msgpack PRIVATE ${COMMON_INCLUDES} ${ROOT}/src/msgpack)
 add_test(NAME msgpack COMMAND test_msgpack)
 
+# LinkedList::DeepCopy tests
+add_executable(test_handles
+    test_handles.cpp
+    ${ROOT}/src/linked_list.cpp
+)
+target_include_directories(test_handles PRIVATE ${COMMON_INCLUDES})
+add_test(NAME handles COMMAND test_handles)
+
 # HJSON tests
 add_executable(test_hjson
     test_hjson.cpp

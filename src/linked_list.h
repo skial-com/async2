@@ -32,6 +32,7 @@ public:
     uint32_t Prev(uint32_t node_id) const;
     int Size() const;
     void Clear();
+    LinkedList* DeepCopy() const;
 
 private:
     Node sentinel_;

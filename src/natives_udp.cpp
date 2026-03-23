@@ -11,7 +11,7 @@ extern EventLoop g_event_loop;
 // async2_UdpNew(any userdata = 0) -> UdpSocket
 static cell_t Native_UdpNew(IPluginContext* pContext, const cell_t* params) {
     auto* sock = new UdpSocket(pContext, params[1]);
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(sock), HANDLE_UDP_SOCKET);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(sock), HANDLE_UDP_SOCKET, pContext);
     if (handle == 0) {
         delete sock;
         return 0;

@@ -15,6 +15,7 @@ void HandleManager::CleanHandles() {
         DeleteHandlePointer(it->second);
     }
     used_handles_.clear();
+    plugin_handles_.clear();
 }
 
 HttpRequest* HandleManager::GetHttpRequest(int handle) {
@@ -59,11 +60,12 @@ LinkedList* HandleManager::GetLinkedList(int handle) {
     return static_cast<LinkedList*>(it->second.pointer);
 }
 
-int HandleManager::CreateHandle(void* pointer, HandleType type) {
+int HandleManager::CreateHandle(void* pointer, HandleType type, IPluginContext* owner) {
     int handle_number;
     Handle h;
     h.type = type;
     h.pointer = pointer;
+    h.owner = owner;
 
     if (!freed_handles_.empty()) {
         handle_number = freed_handles_.front();
@@ -75,12 +77,25 @@ int HandleManager::CreateHandle(void* pointer, HandleType type) {
     }
 
     used_handles_[handle_number] = h;
+    if (owner)
+        plugin_handles_[owner].insert(handle_number);
     return handle_number;
+}
+
+void HandleManager::RemoveFromPluginSet(IPluginContext* owner, int handle) {
+    auto pit = plugin_handles_.find(owner);
+    if (pit != plugin_handles_.end()) {
+        pit->second.erase(handle);
+        if (pit->second.empty())
+            plugin_handles_.erase(pit);
+    }
 }
 
 void HandleManager::FreeHandle(int handle) {
     auto it = used_handles_.find(handle);
     if (it != used_handles_.end()) {
+        if (it->second.owner)
+            RemoveFromPluginSet(it->second.owner, handle);
         freed_handles_.push(it->first);
         DeleteHandlePointer(it->second);
         used_handles_.erase(it);
@@ -92,6 +107,44 @@ void HandleManager::MarkHandleClosed(int handle) {
     if (it != used_handles_.end()) {
         it->second.closed = true;
     }
+}
+
+bool HandleManager::TransferHandle(int handle, IPluginContext* new_owner) {
+    auto it = used_handles_.find(handle);
+    if (it == used_handles_.end() || it->second.closed)
+        return false;
+
+    IPluginContext* old_owner = it->second.owner;
+    if (old_owner == new_owner)
+        return true;
+
+    if (old_owner)
+        RemoveFromPluginSet(old_owner, handle);
+
+    it->second.owner = new_owner;
+    if (new_owner)
+        plugin_handles_[new_owner].insert(handle);
+
+    return true;
+}
+
+std::vector<std::pair<int, Handle>> HandleManager::TakePluginHandles(IPluginContext* ctx) {
+    std::vector<std::pair<int, Handle>> result;
+    auto pit = plugin_handles_.find(ctx);
+    if (pit == plugin_handles_.end())
+        return result;
+
+    auto ids = std::move(pit->second);
+    plugin_handles_.erase(pit);
+
+    for (int id : ids) {
+        auto it = used_handles_.find(id);
+        if (it != used_handles_.end()) {
+            it->second.owner = nullptr;  // detach so FreeHandle won't double-remove
+            result.push_back({id, it->second});
+        }
+    }
+    return result;
 }
 
 void HandleManager::DeleteHandlePointer(Handle h) {

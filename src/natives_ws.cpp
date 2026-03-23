@@ -13,7 +13,7 @@ extern EventLoop g_event_loop;
 // async2_WsNew(any userdata = 0) -> WsSocket
 static cell_t Native_WsNew(IPluginContext* pContext, const cell_t* params) {
     auto* conn = new WsConnection(pContext, params[1]);
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(conn), HANDLE_WS_SOCKET);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(conn), HANDLE_WS_SOCKET, pContext);
     if (handle == 0) {
         delete conn;
         return 0;

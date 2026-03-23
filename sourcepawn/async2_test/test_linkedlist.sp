@@ -193,6 +193,67 @@ void Test_LinkedList_StableIds() {
     list.Close();
 }
 
+void Test_LinkedList_Copy_Empty() {
+    LinkedList src = LinkedList.Create();
+    LinkedList copy = src.Copy();
+    Assert(view_as<int>(copy) != 0, "Copy of empty list returns non-zero");
+    AssertEq(copy.Size, 0, "Copy of empty list is empty");
+    copy.Close();
+    src.Close();
+}
+
+void Test_LinkedList_Copy_Values() {
+    LinkedList src = LinkedList.Create();
+    src.PushBack(10);
+    src.PushBack(20);
+    src.PushBack(30);
+
+    LinkedList copy = src.Copy();
+    AssertEq(copy.Size, 3, "Copy has 3 elements");
+
+    // Check order is preserved
+    LinkedListNode n = copy.First();
+    AssertEq(view_as<int>(copy.GetValue(n)), 10, "Copy first is 10");
+    n = copy.Next(n);
+    AssertEq(view_as<int>(copy.GetValue(n)), 20, "Copy second is 20");
+    n = copy.Next(n);
+    AssertEq(view_as<int>(copy.GetValue(n)), 30, "Copy third is 30");
+
+    copy.Close();
+    src.Close();
+}
+
+void Test_LinkedList_Copy_Independence() {
+    LinkedList src = LinkedList.Create();
+    src.PushBack(1);
+    src.PushBack(2);
+
+    LinkedList copy = src.Copy();
+
+    // Modify copy — source unaffected
+    copy.PushBack(3);
+    AssertEq(copy.Size, 3, "Copy has 3 after append");
+    AssertEq(src.Size, 2, "Source still has 2 after copy append");
+
+    // Modify source — copy unaffected
+    src.PopFront();
+    AssertEq(src.Size, 1, "Source has 1 after pop");
+    AssertEq(copy.Size, 3, "Copy still has 3 after source pop");
+
+    // Close source — copy still works
+    src.Close();
+    AssertEq(copy.Size, 3, "Copy still has 3 after source close");
+    AssertEq(view_as<int>(copy.GetValue(copy.First())), 1, "Copy first still 1 after source close");
+
+    copy.Close();
+}
+
+void Test_LinkedList_Copy_InvalidHandle() {
+    LinkedList invalid = view_as<LinkedList>(99999);
+    LinkedList copy = invalid.Copy();
+    Assert(view_as<int>(copy) == 0, "Copy of invalid handle returns 0");
+}
+
 void RunLinkedListTests() {
     Test_LinkedList_CreateClose();
     Test_LinkedList_PushFrontBack();
@@ -206,4 +267,8 @@ void RunLinkedListTests() {
     Test_LinkedList_Empty();
     Test_LinkedList_SingleElement();
     Test_LinkedList_StableIds();
+    Test_LinkedList_Copy_Empty();
+    Test_LinkedList_Copy_Values();
+    Test_LinkedList_Copy_Independence();
+    Test_LinkedList_Copy_InvalidHandle();
 }

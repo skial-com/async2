@@ -118,7 +118,7 @@ static void DispatchSocketEvent(SocketEvent* evt) {
         case SocketEventType::TCP_ACCEPTED: {
             // Register the accepted socket in the handle manager
             TcpSocket* client = reinterpret_cast<TcpSocket*>(static_cast<intptr_t>(evt->accepted_handle_id));
-            int client_handle = g_handle_manager.CreateHandle(static_cast<void*>(client), HANDLE_TCP_SOCKET);
+            int client_handle = g_handle_manager.CreateHandle(static_cast<void*>(client), HANDLE_TCP_SOCKET, client->plugin_context);
             if (client_handle == 0) {
                 delete client;
                 break;
@@ -244,7 +244,7 @@ static void DispatchSocketEvent(SocketEvent* evt) {
                         int json_handle = 0;
                         DataHandle* dh = new DataHandle(node);
                         json_handle = g_handle_manager.CreateHandle(
-                            static_cast<void*>(dh), HANDLE_JSON_VALUE);
+                            static_cast<void*>(dh), HANDLE_JSON_VALUE, evt->plugin_ctx);
                         if (json_handle == 0) delete dh;
 
                         fn->PushCell(evt->handle_id);
@@ -373,25 +373,23 @@ public:
         IPluginContext* ctx = plugin->GetBaseContext();
         g_plugin_contexts.erase(ctx);
 
-        // Close TCP/UDP/WS sockets owned by this plugin
-        std::vector<std::pair<int, Handle>> sockets_to_close;
-        for (auto& [id, h] : g_handle_manager.GetHandles()) {
-            if (h.type == HANDLE_TCP_SOCKET) {
-                auto* sock = static_cast<TcpSocket*>(h.pointer);
-                if (sock->plugin_context == ctx)
-                    sockets_to_close.push_back({id, h});
-            } else if (h.type == HANDLE_UDP_SOCKET) {
-                auto* sock = static_cast<UdpSocket*>(h.pointer);
-                if (sock->plugin_context == ctx)
-                    sockets_to_close.push_back({id, h});
-            } else if (h.type == HANDLE_WS_SOCKET) {
-                auto* conn = static_cast<WsConnection*>(h.pointer);
-                if (conn->plugin_context == ctx)
-                    sockets_to_close.push_back({id, h});
+        // Close all handles owned by this plugin
+        auto handles = g_handle_manager.TakePluginHandles(ctx);
+        for (auto& [id, h] : handles) {
+            switch (h.type) {
+            case HANDLE_HTTP_REQUEST: {
+                auto* req = static_cast<HttpRequest*>(h.pointer);
+                UntrackClientHandle(req->client_index, req->handle_id);
+                if (req->in_event_thread) {
+                    req->handle_closed = true;
+                    g_handle_manager.MarkHandleClosed(id);
+                    g_event_loop.CancelRequest(req);
+                } else {
+                    g_handle_manager.FreeHandle(id);
+                }
+                break;
             }
-        }
-        for (auto& [id, h] : sockets_to_close) {
-            if (h.type == HANDLE_TCP_SOCKET) {
+            case HANDLE_TCP_SOCKET: {
                 auto* sock = static_cast<TcpSocket*>(h.pointer);
                 sock->handle_closed = true;
                 auto* op = new TcpOp();
@@ -399,14 +397,18 @@ public:
                 op->handle_id = sock->handle_id;
                 op->socket_ptr = nullptr;
                 g_event_loop.EnqueueTcpOp(op);
-            } else if (h.type == HANDLE_UDP_SOCKET) {
+                break;
+            }
+            case HANDLE_UDP_SOCKET: {
                 auto* sock = static_cast<UdpSocket*>(h.pointer);
                 sock->handle_closed = true;
                 auto* uop = new UdpOp();
                 uop->type = UdpOpType::CLOSE;
                 uop->handle_id = sock->handle_id;
                 g_event_loop.EnqueueUdpOp(uop);
-            } else if (h.type == HANDLE_WS_SOCKET) {
+                break;
+            }
+            case HANDLE_WS_SOCKET: {
                 auto* conn = static_cast<WsConnection*>(h.pointer);
                 conn->handle_closed = true;
                 auto* wop = new WsOp();
@@ -414,6 +416,14 @@ public:
                 wop->handle_id = conn->handle_id;
                 wop->close_code = 1001;  // Going Away
                 g_event_loop.EnqueueWsOp(wop);
+                break;
+            }
+            case HANDLE_JSON_VALUE:
+            case HANDLE_LINKED_LIST:
+                g_handle_manager.FreeHandle(id);
+                break;
+            default:
+                break;
             }
         }
     }

@@ -23,7 +23,7 @@ static cell_t Native_MsgPackParse(IPluginContext* pContext, const cell_t* params
         return 0;
 
     DataHandle* handle = new DataHandle(parsed);
-    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE);
+    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE, pContext);
     if (id == 0) {
         delete handle;
         return 0;
@@ -45,7 +45,7 @@ static cell_t Native_MsgPackParseBuffer(IPluginContext* pContext, const cell_t* 
         return 0;
 
     DataHandle* handle = new DataHandle(parsed);
-    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE);
+    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE, pContext);
     if (id == 0) {
         delete handle;
         return 0;

@@ -197,13 +197,13 @@ static DataNode* ResolveJsonPath(IPluginContext* pContext, DataNode* node,
         return 0;
 
 // Wrap a child DataNode* into a new handle sharing the parent's tree.
-static cell_t WrapChildNode(DataHandle* parent, DataNode* val) {
+static cell_t WrapChildNode(IPluginContext* pContext, DataHandle* parent, DataNode* val) {
     if (!val) return 0;
     if (val->refcount >= DataNode::kMaxRefcount) return 0;
     DataHandle* child = new DataHandle(parent->root, val);
     val->refcount++;
     child->owns_refcount_ = true;
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(child), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(child), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) { delete child; return 0; }
     return handle;
 }
@@ -234,7 +234,7 @@ static cell_t Native_JsonParse(IPluginContext* pContext, const cell_t* params) {
         return 0;
 
     DataHandle* json = new DataHandle(node);
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -250,7 +250,7 @@ static cell_t Native_JsonParseString(IPluginContext* pContext, const cell_t* par
     if (!json)
         return 0;
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -293,7 +293,7 @@ static cell_t Native_JsonParseFile(IPluginContext* pContext, const cell_t* param
     if (!json)
         return 0;
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -306,7 +306,7 @@ static cell_t Native_JsonCreateObject(IPluginContext* pContext, const cell_t* pa
     if (!json)
         return 0;
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -319,7 +319,7 @@ static cell_t Native_JsonCreateArray(IPluginContext* pContext, const cell_t* par
     if (!json)
         return 0;
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -404,7 +404,7 @@ static cell_t Native_JsonGetObject(IPluginContext* pContext, const cell_t* param
     char* key;
     pContext->LocalToString(params[2], &key);
     DataNode* val = json->GetObjectNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 static cell_t Native_JsonGetArray(IPluginContext* pContext, const cell_t* params) {
@@ -412,7 +412,7 @@ static cell_t Native_JsonGetArray(IPluginContext* pContext, const cell_t* params
     char* key;
     pContext->LocalToString(params[2], &key);
     DataNode* val = json->GetArrayNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 // Array getters
@@ -452,7 +452,7 @@ static cell_t Native_JsonArrayGetBool(IPluginContext* pContext, const cell_t* pa
 static cell_t Native_JsonArrayGetObject(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     DataNode* val = json->ArrayGetNode(params[2]);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 // Object iterator
@@ -694,7 +694,7 @@ static cell_t Native_JsonCopy(IPluginContext* pContext, const cell_t* params) {
         return 0;
 
     DataHandle* handle = new DataHandle(copy);
-    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE);
+    int id = g_handle_manager.CreateHandle(static_cast<void*>(handle), HANDLE_JSON_VALUE, pContext);
     if (id == 0) {
         delete handle;
         return 0;
@@ -777,7 +777,7 @@ static cell_t Native_JsonPathGet(IPluginContext* pContext, const cell_t* params)
     GET_JSON_HANDLE()
     int path_count = params[0] - 1;
     DataNode* target = ResolveJsonPath(pContext, json->node, params, 2, path_count);
-    return WrapChildNode(json, target);
+    return WrapChildNode(pContext, json, target);
 }
 
 static cell_t Native_JsonPathGetType(IPluginContext* pContext, const cell_t* params) {
@@ -840,7 +840,7 @@ static cell_t Native_IntMapCreate(IPluginContext* pContext, const cell_t* params
     if (!json)
         return 0;
 
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(json), HANDLE_JSON_VALUE, pContext);
     if (handle == 0) {
         delete json;
         return 0;
@@ -880,14 +880,14 @@ static cell_t Native_IntMapGetObject(IPluginContext* pContext, const cell_t* par
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
     DataNode* val = json->IntMapGetObjectNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 static cell_t Native_IntMapGetArray(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
     DataNode* val = json->IntMapGetArrayNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 // 64-bit key getters
@@ -932,14 +932,14 @@ static cell_t Native_IntMapGetObject64(IPluginContext* pContext, const cell_t* p
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
     DataNode* val = json->IntMapGetObjectNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 static cell_t Native_IntMapGetArray64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
     DataNode* val = json->IntMapGetArrayNode(key);
-    return WrapChildNode(json, val);
+    return WrapChildNode(pContext, json, val);
 }
 
 // 32-bit key setters

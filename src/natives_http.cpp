@@ -23,7 +23,7 @@ static cell_t Native_HttpNew(IPluginContext* pContext, const cell_t* params) {
         return 0;
 
     HttpRequest* request = new HttpRequest(c, pContext);
-    int handle = g_handle_manager.CreateHandle(static_cast<void*>(request), HANDLE_HTTP_REQUEST);
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(request), HANDLE_HTTP_REQUEST, pContext);
     if (handle == 0) {
         delete request;
         return 0;
