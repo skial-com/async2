@@ -3,6 +3,7 @@ build/
 build-*/
 build_tmp/
 test/build/
+test/build32/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake

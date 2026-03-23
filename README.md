@@ -144,9 +144,11 @@ async2_JsonPathGetString(data, "users", 0, "name", name, sizeof(name));
 data.Close();
 ```
 
-### [HJSON](https://hjson.github.io/)
+### HJSON
 
 Parse config files with comments, unquoted keys, and multiline strings. Returns a standard `Json` handle.
+
+https://hjson.github.io/
 
 ```sourcepawn
 // Parse from file (path relative to game directory)
@@ -238,9 +240,9 @@ void OnWsClose(WsSocket ws, int code, const char[] reason, any userdata)
 
 ### Important: Handles
 
-async2 types (`WebRequest`, `Json`, `TcpSocket`, `UdpSocket`, `WsSocket`) are **not** SourceMod handles. They use an internal handle manager. Do not pass them to `CloseHandle()`, `delete`, or any API expecting a `Handle`. Always use the type's own `.Close()` method.
+async2 types (`WebRequest`, `Json`, `TcpSocket`, `UdpSocket`, `WsSocket`) are **not** SourceMod handles. They use an internal handle manager to bypass Sourcemod's very limited handle count.
 
-All types support `null` assignment and comparison:
+Do not pass them to `CloseHandle()`, `delete`, or any API expecting a `Handle`. Always use the type's own `.Close()` method. Unloading plugins will close any handles they created. Unloading the extension will close all handles.
 
 ```sourcepawn
 WsSocket g_ws = null;
