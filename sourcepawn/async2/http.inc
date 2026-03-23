@@ -3,6 +3,16 @@
 #endif
 #define _async2_http_included
 
+#define CURL_ERROR_SIZE 256
+
+// Callback signatures
+typeset WebCallback {
+    function void(WebRequest request, int curlcode, int httpcode, int size);
+    function void(WebRequest request, int curlcode, int httpcode, int size, any userdata);
+    function void(WebRequest request, int curlcode, int httpcode, Json data);
+    function void(WebRequest request, int curlcode, int httpcode, Json data, any userdata);
+};
+
 // ============================================================================
 // HTTP Natives
 // ============================================================================
@@ -185,25 +195,6 @@ native int async2_SetOwner(WebRequest handle, int client);
  * @return      0 on success, 1 if invalid mode, 2 if invalid or in-flight handle.
  */
 native int async2_SetResponseType(WebRequest handle, int mode);
-
-/**
- * Returns the process resident set size (physical RAM usage) in kilobytes.
- *
- * @return  RSS in KB, or 0 on error.
- */
-native int async2_GetRss();
-
-/**
- * Returns the process virtual set size (virtual address space usage) in kilobytes.
- *
- * @return  VSS in KB, or 0 on error.
- */
-native int async2_GetVss();
-
-/**
- * Returns the number of active handles in the handle manager.
- */
-native int async2_GetHandleCount();
 
 // Response type constants for async2_SetResponseType
 #define RESPONSE_RAW      0

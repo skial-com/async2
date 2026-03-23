@@ -1,6 +1,15 @@
+#include <cstdio>
+#include <cstring>
 #include <uv.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include "smsdk_ext.h"
 #include "natives.h"
+
+// ===== Time ================================================================
 
 // Anchored clock state (game thread only — no synchronization needed)
 static int64_t g_clock_offset;      // realtime_ms - monotonic_ms at anchor
@@ -68,7 +77,41 @@ static cell_t Native_GetTime(IPluginContext* pContext, const cell_t* params) {
     return 0;
 }
 
-sp_nativeinfo_t g_TimeNatives[] = {
-    {"async2_GetTime", Native_GetTime},
-    {nullptr,          nullptr},
+// ===== Memory / diagnostics ================================================
+
+static cell_t Native_GetRss(IPluginContext* pContext, const cell_t* params) {
+    size_t rss;
+    if (uv_resident_set_memory(&rss) != 0) return 0;
+    return static_cast<cell_t>(rss / 1024);
+}
+
+static cell_t Native_GetVss(IPluginContext* pContext, const cell_t* params) {
+#ifdef _WIN32
+    MEMORYSTATUSEX ms{};
+    ms.dwLength = sizeof(ms);
+    if (!GlobalMemoryStatusEx(&ms)) return 0;
+    return static_cast<cell_t>((ms.ullTotalVirtual - ms.ullAvailVirtual) / 1024);
+#else
+    FILE* f = fopen("/proc/self/statm", "r");
+    if (!f) return 0;
+    unsigned long pages;
+    int ret = fscanf(f, "%lu", &pages);
+    fclose(f);
+    if (ret != 1) return 0;
+    return static_cast<cell_t>(pages * (sysconf(_SC_PAGESIZE) / 1024));
+#endif
+}
+
+static cell_t Native_GetHandleCount(IPluginContext* pContext, const cell_t* params) {
+    return static_cast<cell_t>(g_handle_manager.GetHandles().size());
+}
+
+// ===== Native table ========================================================
+
+sp_nativeinfo_t g_UtilsNatives[] = {
+    {"async2_GetTime",        Native_GetTime},
+    {"async2_GetRss",         Native_GetRss},
+    {"async2_GetVss",         Native_GetVss},
+    {"async2_GetHandleCount", Native_GetHandleCount},
+    {nullptr,                 nullptr},
 };

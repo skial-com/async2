@@ -29,7 +29,7 @@ extern sp_nativeinfo_t g_CryptoNatives[];
 extern sp_nativeinfo_t g_WsNatives[];
 extern sp_nativeinfo_t g_LinkedListNatives[];
 extern sp_nativeinfo_t g_UrlNatives[];
-extern sp_nativeinfo_t g_TimeNatives[];
+extern sp_nativeinfo_t g_UtilsNatives[];
 extern sp_nativeinfo_t g_HjsonNatives[];
 
 void InitAnchoredClock();

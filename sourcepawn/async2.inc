@@ -84,29 +84,6 @@
 // Without this, 64-bit integers use int[2] arrays (low, high).
 // #define SOURCEMOD_INT64
 
-#define CURL_ERROR_SIZE 256
-
-// JSON value types
-enum JsonType {
-    JSON_TYPE_NONE = 0,
-    JSON_TYPE_NULL,
-    JSON_TYPE_BOOL,
-    JSON_TYPE_NUMBER,
-    JSON_TYPE_STRING,
-    JSON_TYPE_ARRAY,
-    JSON_TYPE_OBJECT,
-    JSON_TYPE_BINARY,
-    JSON_TYPE_INTOBJECT,
-};
-
-// Callback signatures
-typeset WebCallback {
-    function void(WebRequest request, int curlcode, int httpcode, int size);
-    function void(WebRequest request, int curlcode, int httpcode, int size, any userdata);
-    function void(WebRequest request, int curlcode, int httpcode, Json data);
-    function void(WebRequest request, int curlcode, int httpcode, Json data, any userdata);
-};
-
 #include <async2/curl_enums>
 #include <async2/json>
 #include <async2/intobject>
@@ -120,7 +97,7 @@ typeset WebCallback {
 #include <async2/crypto>
 #include <async2/url>
 #include <async2/linkedlist>
-#include <async2/time>
+#include <async2/utils>
 
 // ============================================================================
 // Extension registration

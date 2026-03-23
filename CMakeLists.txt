@@ -71,7 +71,7 @@ set(SOURCES
     src/linked_list.cpp
     src/natives_linkedlist.cpp
     src/natives_url.cpp
-    src/natives_time.cpp
+    src/natives_utils.cpp
     src/natives_hjson.cpp
     src/hjson/hjson_parse.cpp
     src/msgpack/msgpack_parse.cpp

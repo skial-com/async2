@@ -1,10 +1,10 @@
-#if defined _async2_time_included
+#if defined _async2_utils_included
     #endinput
 #endif
-#define _async2_time_included
+#define _async2_utils_included
 
 // ============================================================================
-// Time Natives
+// Utility Natives
 // ============================================================================
 
 /**
@@ -177,3 +177,26 @@ enum struct Timestamp {
     }
 
 }
+
+// ============================================================================
+// Memory / Diagnostics
+// ============================================================================
+
+/**
+ * Returns the process resident set size (physical RAM usage) in kilobytes.
+ *
+ * @return  RSS in KB, or 0 on error.
+ */
+native int async2_GetRss();
+
+/**
+ * Returns the process virtual set size (virtual address space usage) in kilobytes.
+ *
+ * @return  VSS in KB, or 0 on error.
+ */
+native int async2_GetVss();
+
+/**
+ * Returns the number of active handles in the handle manager.
+ */
+native int async2_GetHandleCount();

@@ -3,6 +3,19 @@
 #endif
 #define _async2_json_included
 
+// JSON value types
+enum JsonType {
+    JSON_TYPE_NONE = 0,
+    JSON_TYPE_NULL,
+    JSON_TYPE_BOOL,
+    JSON_TYPE_NUMBER,
+    JSON_TYPE_STRING,
+    JSON_TYPE_ARRAY,
+    JSON_TYPE_OBJECT,
+    JSON_TYPE_BINARY,
+    JSON_TYPE_INTOBJECT,
+};
+
 // ============================================================================
 // JSON Natives
 // ============================================================================

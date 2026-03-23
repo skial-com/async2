@@ -7,15 +7,18 @@ Windows and Linux support, both x86 and x64. Any engine.
 ## Features
 
 - **HTTP/S** — requests with HTTP/2, HTTPS, automatic decompression (gzip/brotli), retry with exponential backoff, connection pooling
+- **HTTP Utils** — url encode/decode query string encode/decode
+- **WebSocket** — async client with TLS, message reassembly, auto-ping, auto-reconnect with exponential backoff
 - **Json** — high-performance all purpose data structure with O(1) key lookup, deep path access, and int64 support
 - **MessagePack** — binary serialization, convert any Json to messagepack seamlessly. Messagepack to Json if it only has JSON types.
 - **IntObject** — int64-keyed maps (useful for SteamIDs, entity indices). can be put inside a Json, but won't be serialized as Json.
-- **TCP** — async client and server sockets
-- **UDP** — async datagram sockets
-- **WebSocket** — async client with TLS, message reassembly, auto-ping, auto-reconnect with exponential backoff
-- **DNS** — async resolution for TCP/UDP with caching and configurable timeouts
+- **TCP** — async client and server
+- **UDP** — async client and server
+- **DNS** — all dns (when you use domain names instead of ips) is async and will never block. Old extensions that use regular DNS can block until the server is rebooted. Cache and configurable timeouts.
 - **HJSON** — parse config files with comments, unquoted keys/values, multiline strings. AVX2-accelerated with scalar fallback.
 - **Crypto** — Base64, hex, SHA-256, SHA-1, MD5, CRC32, HMAC
+- **Linked List** — Yes this basic datastructure is missing from sourcemod and needed for efficient implementation of caches. An LRU cache is included in async2_lru.inc
+- **Time** — Native for current time as milliseconds since Unix epoch. Compatible with javascript. Never jumps backwards in time.
 
 All I/O runs on a background thread (libuv). Callbacks fire on the game thread.
 
@@ -263,6 +266,8 @@ This is the successor of async. Not drop-in compatible, but you can run both sid
 - **Why bundle JSON and MessagePack instead of a separate extension?**
 
   SourceMod has limited stack space. If you put everything into a string, it can silently fail. You can work around this with `#pragma dynamic`, but you'd have to guess the max size ahead of time. With JSON in the same extension, you can pass or receive arbitrarily large data from the web.
+
+  The Json object fills the gaps in sourcemod's basic data structures. Instead of using nested trie/StringMaps and arrays, a single Json does it all. 
 
 - **Why bundle TCP and UDP?**
 

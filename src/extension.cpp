@@ -432,7 +432,7 @@ bool Async2Extension::SDK_OnLoad(char* error, size_t maxlength, bool late) {
     sharesys->AddNatives(myself, g_WsNatives);
     sharesys->AddNatives(myself, g_LinkedListNatives);
     sharesys->AddNatives(myself, g_UrlNatives);
-    sharesys->AddNatives(myself, g_TimeNatives);
+    sharesys->AddNatives(myself, g_UtilsNatives);
     sharesys->AddNatives(myself, g_HjsonNatives);
     sharesys->RegisterLibrary(myself, "async2");
 

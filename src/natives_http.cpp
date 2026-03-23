@@ -289,33 +289,6 @@ static cell_t Native_SetResponseType(IPluginContext* pContext, const cell_t* par
     return 0;
 }
 
-static cell_t Native_GetRss(IPluginContext* pContext, const cell_t* params) {
-    size_t rss;
-    if (uv_resident_set_memory(&rss) != 0) return 0;
-    return static_cast<cell_t>(rss / 1024);
-}
-
-static cell_t Native_GetHandleCount(IPluginContext* pContext, const cell_t* params) {
-    return static_cast<cell_t>(g_handle_manager.GetHandles().size());
-}
-
-static cell_t Native_GetVss(IPluginContext* pContext, const cell_t* params) {
-#ifdef _WIN32
-    MEMORYSTATUSEX ms{};
-    ms.dwLength = sizeof(ms);
-    if (!GlobalMemoryStatusEx(&ms)) return 0;
-    return static_cast<cell_t>((ms.ullTotalVirtual - ms.ullAvailVirtual) / 1024);
-#else
-    FILE* f = fopen("/proc/self/statm", "r");
-    if (!f) return 0;
-    unsigned long pages;
-    int ret = fscanf(f, "%lu", &pages);
-    fclose(f);
-    if (ret != 1) return 0;
-    return static_cast<cell_t>(pages * (sysconf(_SC_PAGESIZE) / 1024));
-#endif
-}
-
 sp_nativeinfo_t g_HttpNatives[] = {
     {"async2_HttpNew",                  Native_HttpNew},
     {"async2_HttpClose",                Native_HttpClose},
@@ -338,8 +311,5 @@ sp_nativeinfo_t g_HttpNatives[] = {
     {"async2_SetLogLevel",              Native_SetLogLevel},
     {"async2_SetOwner",                 Native_SetOwner},
     {"async2_SetResponseType",          Native_SetResponseType},
-    {"async2_GetRss",                   Native_GetRss},
-    {"async2_GetVss",                   Native_GetVss},
-    {"async2_GetHandleCount",           Native_GetHandleCount},
     {nullptr,                           nullptr},
 };
