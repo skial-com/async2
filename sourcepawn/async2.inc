@@ -137,4 +137,12 @@ public void __ext_async2_SetNTVOptional()
     // Handle ownership
     MarkNativeAsOptional("async2_SetHandlePlugin");
     MarkNativeAsOptional("async2_LinkedListCopy");
+
+    // Iterator handles
+    MarkNativeAsOptional("async2_ObjectIterCreate");
+    MarkNativeAsOptional("async2_IntMapIterCreate");
+    MarkNativeAsOptional("async2_IterNext");
+    MarkNativeAsOptional("async2_IntMapIterNext");
+    MarkNativeAsOptional("async2_IntMapIterNext64");
+    MarkNativeAsOptional("async2_IterClose");
 }
