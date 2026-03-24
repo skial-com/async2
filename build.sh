@@ -20,7 +20,13 @@ for arg in "$@"; do
     fi
 done
 
-ARCH="${ARCH:-x86,x86_64}"
+# Default to current platform arch; "all" builds both x86 and x86_64
+if [ -z "$ARCH" ]; then
+    ARCH="$(uname -m)"
+    [ "$ARCH" = "x86_64" ] || ARCH="x86"
+elif [ "$ARCH" = "all" ]; then
+    ARCH="x86,x86_64"
+fi
 SM_PATH="${SM_PATH:-../sdk/sourcemod}"
 SM_PATH="$(cd "$SCRIPT_DIR" && cd "$SM_PATH" && pwd)"
 

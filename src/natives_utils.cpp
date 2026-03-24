@@ -9,6 +9,15 @@
 #include "smsdk_ext.h"
 #include "natives.h"
 
+// ===== Version =============================================================
+
+// Bump when the include needs to detect new runtime behavior. See API_VERSIONS.md.
+#define ASYNC2_API_VERSION 2
+
+static cell_t Native_GetVersion(IPluginContext*, const cell_t*) {
+    return ASYNC2_API_VERSION;
+}
+
 // ===== Time ================================================================
 
 // Anchored clock state (game thread only — no synchronization needed)
@@ -124,6 +133,7 @@ static cell_t Native_SetHandlePlugin(IPluginContext* pContext, const cell_t* par
 // ===== Native table ========================================================
 
 sp_nativeinfo_t g_UtilsNatives[] = {
+    {"async2_GetVersion",         Native_GetVersion},
     {"async2_GetTime",            Native_GetTime},
     {"async2_GetRss",             Native_GetRss},
     {"async2_GetVss",             Native_GetVss},

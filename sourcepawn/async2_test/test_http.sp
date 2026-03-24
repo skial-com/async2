@@ -1,19 +1,15 @@
 // HTTP Tests — requires test server: go run test/test_server.go
 
 // ============================================================================
-// HTTP Tests — default HTTPS/h2 on port 8788 (requires test server)
+// HTTP Tests — default HTTP/1.1 on port 8787 (requires test server)
+// One dedicated TLS test exercises HTTPS/h2 on port 8788.
 // ============================================================================
 
-#define TEST_URL "https://127.0.0.1:8788"
-#define TEST_URL_HTTP "http://127.0.0.1:8787"
+#define TEST_URL "http://127.0.0.1:8787"
+#define TEST_URL_HTTPS "https://127.0.0.1:8788"
 
-// All tests use HTTPS by default (HTTP/2 via ALPN). Skip cert verification
-// for the self-signed test cert.
 WebRequest NewRequest(any userdata = 0) {
-    WebRequest req = async2_HttpNew(userdata);
-    req.SetOptInt(CURLOPT_SSL_VERIFYPEER, 0);
-    req.SetOptInt(CURLOPT_SSL_VERIFYHOST, 0);
-    return req;
+    return async2_HttpNew(userdata);
 }
 
 void Test_HTTP_Get() {
@@ -307,25 +303,27 @@ public void OnHttpDeflateUpload(WebRequest req, int curlcode, int httpcode, int 
     MaybeFinishAll();
 }
 
-void Test_HTTP_PlainHTTP() {
-    // Verify plain HTTP/1.1 still works (all other tests use HTTPS/h2)
+void Test_HTTP_TLS() {
+    // Verify HTTPS/h2 works (all other tests use plain HTTP)
     g_http_pending++;
     WebRequest req = async2_HttpNew();
-    req.Execute("GET", TEST_URL_HTTP ... "/json", OnHttpPlainHTTP);
+    req.SetOptInt(CURLOPT_SSL_VERIFYPEER, 0);
+    req.SetOptInt(CURLOPT_SSL_VERIFYHOST, 0);
+    req.Execute("GET", TEST_URL_HTTPS ... "/json", OnHttpTLS);
 }
 
-public void OnHttpPlainHTTP(WebRequest req, int curlcode, int httpcode, int size) {
+public void OnHttpTLS(WebRequest req, int curlcode, int httpcode, int size) {
     g_http_pending--;
-    AssertEq(curlcode, 0, "HTTP/1.1 curlcode");
-    AssertEq(httpcode, 200, "HTTP/1.1 httpcode");
-    Assert(size > 0, "HTTP/1.1 has body");
+    AssertEq(curlcode, 0, "HTTPS/h2 curlcode");
+    AssertEq(httpcode, 200, "HTTPS/h2 httpcode");
+    Assert(size > 0, "HTTPS/h2 has body");
 
     Json json = Json.ParseResponse(req);
-    Assert(view_as<int>(json) != 0, "HTTP/1.1 parse JSON");
+    Assert(view_as<int>(json) != 0, "HTTPS/h2 parse JSON");
 
     char name[64];
     json.GetString("name", name, sizeof(name));
-    AssertStrEq(name, "async2", "HTTP/1.1 json.name");
+    AssertStrEq(name, "async2", "HTTPS/h2 json.name");
 
     json.Close();
 
@@ -1237,7 +1235,7 @@ void Test_HTTP_SetResponseType_CurlError() {
     WebRequest req = NewRequest();
     req.SetResponseType(RESPONSE_JSON);
     req.SetOptInt(CURLOPT_TIMEOUT_MS, 500);
-    req.Execute("GET", "https://127.0.0.1:1/nope", OnHttpSetResponseType_CurlError);
+    req.Execute("GET", "http://127.0.0.1:1/nope", OnHttpSetResponseType_CurlError);
 }
 
 public void OnHttpSetResponseType_CurlError(WebRequest req, int curlcode, int httpcode, Json data) {
@@ -1502,7 +1500,7 @@ void RunHttpTests() {
     Test_HTTP_ResponseHeader();
     Test_HTTP_Gzip();
     Test_HTTP_Deflate_Upload();
-    Test_HTTP_PlainHTTP();
+    Test_HTTP_TLS();
     Test_HTTP_Put();
     Test_HTTP_Patch();
     Test_HTTP_Timeout();

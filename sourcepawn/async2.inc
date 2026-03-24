@@ -145,6 +145,9 @@ public void __ext_async2_SetNTVOptional()
     // Ref (shared handle)
     MarkNativeAsOptional("async2_JsonRef");
 
+    // API version
+    MarkNativeAsOptional("async2_GetVersion");
+
     // Iterator handles
     MarkNativeAsOptional("async2_ObjectIterCreate");
     MarkNativeAsOptional("async2_IntMapIterCreate");

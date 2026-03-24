@@ -130,8 +130,10 @@ methodmap IntObject < Json {
         async2_IntObjectSetNull(this, key);
     }
 
-    public void SetObject(int key, Json child) {
+    public void SetObject(int key, Json &child) {
         async2_IntObjectSetObject(this, key, child);
+        if (!Async2_HandlesAutoConsumed()) child.Close();
+        child = null;
     }
 
     public bool RemoveKey(int key) {
@@ -207,8 +209,10 @@ methodmap IntObject < Json {
         async2_IntObject64SetNull(this, key);
     }
 
-    public void SetObject64(int key[2], Json child) {
+    public void SetObject64(int key[2], Json &child) {
         async2_IntObject64SetObject(this, key, child);
+        if (!Async2_HandlesAutoConsumed()) child.Close();
+        child = null;
     }
 
     public bool RemoveKey64(int key[2]) {

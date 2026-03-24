@@ -381,8 +381,10 @@ methodmap Json __nullable__ {
         async2_JsonSetNull(this, key);
     }
 
-    public void SetObject(const char[] key, Json child) {
+    public void SetObject(const char[] key, Json &child) {
         async2_JsonSetObject(this, key, child);
+        if (!Async2_HandlesAutoConsumed()) child.Close();
+        child = null;
     }
 
     public bool RemoveKey(const char[] key) {
@@ -435,8 +437,10 @@ methodmap Json __nullable__ {
         async2_JsonArraySetNull(this, index);
     }
 
-    public void ArraySetObject(int index, Json child) {
+    public void ArraySetObject(int index, Json &child) {
         async2_JsonArraySetObject(this, index, child);
+        if (!Async2_HandlesAutoConsumed()) child.Close();
+        child = null;
     }
 
     public void ArrayClear() {
@@ -475,8 +479,10 @@ methodmap Json __nullable__ {
         async2_JsonArrayAppendNull(this);
     }
 
-    public void ArrayAppendObject(Json child) {
+    public void ArrayAppendObject(Json &child) {
         async2_JsonArrayAppendObject(this, child);
+        if (!Async2_HandlesAutoConsumed()) child.Close();
+        child = null;
     }
 
     public bool Equals(Json other) {

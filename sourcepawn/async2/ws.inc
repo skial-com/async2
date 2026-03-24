@@ -275,12 +275,18 @@ methodmap WsSocket __nullable__ {
         async2_WsSetOption(this, WS_PARSE_MESSAGES, mode);
     }
 
-    public int SendJson(Json data) {
-        return async2_WsSendJson(this, data);
+    public int SendJson(Json &data) {
+        int ret = async2_WsSendJson(this, data);
+        if (!Async2_HandlesAutoConsumed()) data.Close();
+        data = null;
+        return ret;
     }
 
-    public int SendMsgPack(Json data) {
-        return async2_WsSendMsgPack(this, data);
+    public int SendMsgPack(Json &data) {
+        int ret = async2_WsSendMsgPack(this, data);
+        if (!Async2_HandlesAutoConsumed()) data.Close();
+        data = null;
+        return ret;
     }
 
     public void SetReconnect(int maxReconnects, int delayMs = 1000, float backoff = 2.0, int maxDelayMs = 30000) {

@@ -272,12 +272,14 @@ stock WebRequest async2_Post(const char[] url, const char[] body, WebCallback ca
 
 // Creates and executes a POST request with a JSON body. Returns a handle that must be closed with async2_HttpClose.
 // The JSON handle is consumed (freed) — Close() after is a safe no-op.
-stock WebRequest async2_PostJson(const char[] url, Json jsonHandle, WebCallback callback, any userdata = 0) {
+stock WebRequest async2_PostJson(const char[] url, Json &jsonHandle, WebCallback callback, any userdata = 0) {
     WebRequest request = async2_HttpNew(userdata);
     if (request) {
         async2_SetBodyJSON(request, jsonHandle);
         async2_HttpExecute(request, "POST", url, callback);
     }
+    if (!Async2_HandlesAutoConsumed()) async2_JsonClose(jsonHandle);
+    jsonHandle = null;
     return request;
 }
 
@@ -302,7 +304,7 @@ methodmap WebRequest __nullable__ {
         return async2_Post(url, body, cb, userdata);
     }
 
-    public static WebRequest PostJson(const char[] url, Json json, WebCallback cb, any userdata = 0) {
+    public static WebRequest PostJson(const char[] url, Json &json, WebCallback cb, any userdata = 0) {
         return async2_PostJson(url, json, cb, userdata);
     }
 
@@ -314,12 +316,16 @@ methodmap WebRequest __nullable__ {
         async2_SetBodyString(this, str);
     }
 
-    public void SetBodyJSON(Json json) {
+    public void SetBodyJSON(Json &json) {
         async2_SetBodyJSON(this, json);
+        if (!Async2_HandlesAutoConsumed()) json.Close();
+        json = null;
     }
 
-    public void SetBodyMsgPack(Json json) {
+    public void SetBodyMsgPack(Json &json) {
         async2_SetBodyMsgPack(this, json);
+        if (!Async2_HandlesAutoConsumed()) json.Close();
+        json = null;
     }
 
     public void SetCompression(bool compress) {
