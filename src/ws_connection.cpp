@@ -1,6 +1,9 @@
 #include "ws_connection.h"
+#include "data/data_node.h"
 
-WsOp::~WsOp() {}
+WsOp::~WsOp() {
+    if (body_node) DataNode::Decref(body_node);
+}
 
 WsConnection::WsConnection(IPluginContext* ctx, int ud)
     : plugin_context(ctx), userdata(ud) {}

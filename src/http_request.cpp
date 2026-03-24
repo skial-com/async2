@@ -66,6 +66,8 @@ HttpRequest::HttpRequest(CURL* c, IPluginContext* plugin) {
     in_retry_wait = false;
     log_retries = false;
     log_caller_line = 0;
+    body_node = nullptr;
+    body_format = BodyFormat::NONE;
     response_node = nullptr;
     parse_mode = 0;
 }
@@ -77,6 +79,8 @@ HttpRequest::~HttpRequest() {
     }
     if (built_headers_)
         curl_slist_free_all(built_headers_);
+    if (body_node)
+        DataNode::Decref(body_node);
     if (response_node)
         DataNode::Decref(response_node);
 }
@@ -97,6 +101,11 @@ void HttpRequest::ClearHeaders() {
 }
 
 void HttpRequest::SetBody(const char* data, size_t length) {
+    if (body_node) {
+        DataNode::Decref(body_node);
+        body_node = nullptr;
+        body_format = BodyFormat::NONE;
+    }
     post_body.assign(data, length);
 }
 
@@ -112,6 +121,17 @@ void HttpRequest::PrepareForSend() {
 }
 
 void HttpRequest::SetupCurl() {
+    // Serialize body_node on event thread
+    if (body_node) {
+        if (body_format == BodyFormat::JSON) {
+            post_body = DataSerializeJson(*body_node, false);
+        } else if (body_format == BodyFormat::MSGPACK) {
+            auto buf = MsgPackSerialize(*body_node);
+            post_body.assign(reinterpret_cast<const char*>(buf.data()), buf.size());
+        }
+        DataNode::Decref(body_node);
+        body_node = nullptr;
+    }
 
     if (!post_body.empty() && compress_body) {
         std::vector<char> compressed;

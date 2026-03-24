@@ -84,8 +84,16 @@ static cell_t Native_SetBodyMsgPack(IPluginContext* pContext, const cell_t* para
     if (!json || !json->node)
         return 2;
 
-    auto buf = MsgPackSerialize(*json->node);
-    request->SetBody(reinterpret_cast<const char*>(buf.data()), buf.size());
+    DataNode* node = json->node;
+    if (node->refcount.load(std::memory_order_relaxed) == 1) {
+        json->node = nullptr;
+    } else {
+        node = node->DeepCopy();
+    }
+    request->post_body.clear();
+    if (request->body_node) DataNode::Decref(request->body_node);
+    request->body_node = node;
+    request->body_format = BodyFormat::MSGPACK;
     request->SetHeader("Content-Type", "application/msgpack");
     g_handle_manager.FreeHandle(params[2]);
     return 0;

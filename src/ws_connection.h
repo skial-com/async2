@@ -26,6 +26,7 @@ struct WsOp {
     int option_id;                   // SET_OPTION
     int option_value;                // SET_OPTION
     WsConnection* conn_ptr;         // CONNECT: register in event loop
+    DataNode* body_node = nullptr;   // SEND_JSON/SEND_MSGPACK: stolen or copied tree
     ~WsOp();
 };
 

@@ -123,7 +123,7 @@ Shared: `GET_HTTP_REQUEST()` macro + `extern HandleManager g_handle_manager` in 
 
 `sourcepawn/async2.inc` — natives and methodmaps grouped by type, curl enums at end. Use `async2_HttpNew()` not `new WebRequest()`.
 
-- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` **consume the JSON handle**: serialize to string on game thread, store in `post_body`, FreeHandle. `Close()` after send is a safe no-op. No DataNode crosses to the event thread.
+- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` **consume the JSON handle**: if sole owner (refcount==1), steal the tree pointer at zero cost; if shared, DeepCopy. Tree is serialized on the event thread. `Close()` after send is a safe no-op. Same steal-or-copy for `WsSendJSON`/`WsSendMsgPack`.
 - `WsSendJSON`/`WsSendMsgPack` also **consume the JSON handle** — same Incref + FreeHandle pattern.
 - `SetObject`/`ArraySetObject`/`ArrayAppendObject`/`IntMapSetObject` **consume the child handle** — Incref the child node, insert directly into parent, FreeHandle the child. `Close()` after is a safe no-op.
 - **`JsonRef()`** — O(1) lightweight reference: new handle sharing the same DataNode tree via Incref. Mutations through either handle affect both. Close independently. Pairs with `JsonCopy()` (deep copy).
