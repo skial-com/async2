@@ -20,12 +20,16 @@ enum JsonType {
 // JSON Natives
 // ============================================================================
 //
-// Getters (GetObject, GetArray, ArrayGetObject, ObjectValueByIndex)
-// return shallow handles that point into the same tree. Mutations through the
-// child affect the parent.
+// Getters (GetObject, GetArray, ArrayGetObject) return child handles that
+// point into the same tree. Mutations through the child affect the parent.
+// Closing the parent frees unreferenced siblings — child subtrees survive.
 //
-// Setters (SetObject, ArrayAppendObject) and Copy
-// deep-copy the node, producing an independent subtree.
+// Setters (SetObject, ArrayAppendObject) consume the child handle.
+// The child handle is freed after the call. Close() after is a safe no-op.
+// Use .Copy() first if you need the child afterward.
+//
+// Ref() returns a lightweight reference sharing the same data (no copy).
+// Copy() returns an independent deep copy.
 //
 // Parses the response body of an HTTP request as JSON.
 // Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
@@ -115,9 +119,8 @@ native int async2_JsonSetFloat(Json jsonHandle, const char[] key, float value);
 native int async2_JsonSetBool(Json jsonHandle, const char[] key, bool value);
 native int async2_JsonSetNull(Json jsonHandle, const char[] key);
 
-// Moves the child tree into this object under key. The child is consumed —
-// it becomes null after this call (Close is safe but reads return null/0).
-// If you need the child afterward, use SetObject(key, child.Copy()).
+// Inserts the child into this object under key. The child handle is consumed (freed).
+// Close() after is a safe no-op. Use SetObject(key, child.Copy()) to keep the child.
 // Self-insert (same handle as parent and child) is a no-op.
 native int async2_JsonSetObject(Json jsonHandle, const char[] key, Json childHandle);
 
@@ -147,7 +150,7 @@ native int async2_JsonArraySetInt64(Json jsonHandle, int index, int val[2]);
 native int async2_JsonArraySetFloat(Json jsonHandle, int index, float value);
 native int async2_JsonArraySetBool(Json jsonHandle, int index, bool value);
 native int async2_JsonArraySetNull(Json jsonHandle, int index);
-// Moves the child into this array slot. The child is consumed (see SetObject).
+// Replaces an array element with the child. The child handle is consumed (see SetObject).
 native int async2_JsonArraySetObject(Json jsonHandle, int index, Json childHandle);
 
 // Removes all elements from an array.
@@ -166,7 +169,7 @@ native int async2_JsonArrayAppendInt64(Json jsonHandle, int val[2]);
 native int async2_JsonArrayAppendFloat(Json jsonHandle, float value);
 native int async2_JsonArrayAppendBool(Json jsonHandle, bool value);
 native int async2_JsonArrayAppendNull(Json jsonHandle);
-// Moves the child and appends it to this array. The child is consumed (see SetObject).
+// Appends the child to this array. The child handle is consumed (see SetObject).
 native int async2_JsonArrayAppendObject(Json jsonHandle, Json childHandle);
 
 // Recursively compares two JSON values for equality.

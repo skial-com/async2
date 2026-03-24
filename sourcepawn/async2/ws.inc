@@ -141,18 +141,16 @@ native int async2_WsSendBinary(WsSocket socket, const char[] data, int length);
 native int async2_WsSendPing(WsSocket socket, const char[] data = "", int length = 0);
 
 /**
- * Sends a Json handle as a UTF-8 JSON text message.
- * Deep-copies the tree; serialization happens on the event thread.
- * The Json handle is NOT consumed — caller must close it separately.
- * @return  0 on success, 2 if invalid handle, 3 if deep-copy failed.
+ * Sends a Json handle as a UTF-8 JSON text message and consumes it.
+ * The Json handle is consumed (freed) — Close() after is a safe no-op.
+ * @return  0 on success, 2 if invalid handle.
  */
 native int async2_WsSendJson(WsSocket socket, Json jsonHandle);
 
 /**
- * Sends a Json handle as a binary MsgPack message.
- * Deep-copies the tree; serialization happens on the event thread.
- * The Json handle is NOT consumed — caller must close it separately.
- * @return  0 on success, 2 if invalid handle, 3 if deep-copy failed.
+ * Sends a Json handle as a binary MsgPack message and consumes it.
+ * The Json handle is consumed (freed) — Close() after is a safe no-op.
+ * @return  0 on success, 2 if invalid handle.
  */
 native int async2_WsSendMsgPack(WsSocket socket, Json jsonHandle);
 

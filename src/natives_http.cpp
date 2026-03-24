@@ -78,7 +78,7 @@ static cell_t Native_HttpExecute(IPluginContext* pContext, const cell_t* params)
     curl_easy_setopt(request->curl, CURLOPT_CUSTOMREQUEST, request->method.c_str());
 
     // For POST/PUT/PATCH, enable POST mode if body is set
-    if (!request->post_body.empty() || request->body_node) {
+    if (!request->post_body.empty()) {
         curl_easy_setopt(request->curl, CURLOPT_POST, 1L);
     }
 
@@ -113,8 +113,8 @@ static cell_t Native_SetBodyJSON(IPluginContext* pContext, const cell_t* params)
     if (!json || !json->node)
         return 2;
 
-    json->node->Incref();
-    request->SetBodyNode(json->node, BodyFormat::JSON);
+    std::string serialized = DataSerializeJson(*json->node, false);
+    request->SetBody(serialized.data(), serialized.size());
     request->SetHeader("Content-Type", "application/json");
     g_handle_manager.FreeHandle(params[2]);
     return 0;

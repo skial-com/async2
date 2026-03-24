@@ -11,8 +11,6 @@
 #include "smsdk_ext.h"
 #include "data/data_node.h"
 
-enum class BodyFormat { NONE, JSON, MSGPACK };
-
 class HttpRequest {
 public:
     CURL* curl;
@@ -52,10 +50,6 @@ public:
     std::string log_caller_file;
     int log_caller_line;
 
-    // Event-thread body serialization
-    DataNode* body_node;
-    BodyFormat body_format;
-
     // Response auto-parse (0=raw, 1=JSON, 2=MsgPack)
     DataNode* response_node;
     int parse_mode;
@@ -68,7 +62,6 @@ public:
     void ClearHeaders();
     void SetBody(const char* data, size_t length);
     void SetBodyString(const char* str);
-    void SetBodyNode(DataNode* node, BodyFormat format);
     void PrepareForSend();
     void SetupCurl();
     void OnCompleted();

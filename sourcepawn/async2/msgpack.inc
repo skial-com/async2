@@ -18,11 +18,11 @@ native Json async2_MsgPackParseBuffer(const char[] data, int length);
 // Returns number of bytes written to buffer.
 native int async2_MsgPackSerialize(Json jsonHandle, char[] buffer, int maxlen);
 
-// Serializes a Json handle as MessagePack and sets it as the request body.
-// Also sets Content-Type to application/msgpack. The JSON tree is deep-copied;
-// serialization happens on the event thread.
-// The JSON handle is NOT consumed — caller must close it separately.
-// Returns 0 on success, 2 if invalid or in-flight handle, 3 if serialization failed.
+// Sets a Json handle as the request body in MessagePack format and consumes it.
+// Also sets Content-Type to application/msgpack. The JSON handle is consumed
+// (freed) — Close() after is a safe no-op.
+// Use .Copy() before this call if you need the data afterward.
+// Returns 0 on success, 2 if invalid or in-flight handle.
 native int async2_SetBodyMsgPack(WebRequest handle, Json jsonHandle);
 
 // Sets the maximum number of elements allowed in a single msgpack array or map.

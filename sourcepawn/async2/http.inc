@@ -68,12 +68,12 @@ native int async2_SetBody(WebRequest handle, const char[] data, int length);
 native int async2_SetBodyString(WebRequest handle, const char[] str);
 
 /**
- * Serializes a JSON handle and sets it as the body.
- * Also sets Content-Type: application/json. The JSON tree is deep-copied;
- * serialization happens on the event thread.
- * The JSON handle is NOT consumed — caller must close it separately.
+ * Sets a JSON handle as the request body and consumes it.
+ * Also sets Content-Type: application/json. The JSON handle is consumed
+ * (freed) — Close() after is a safe no-op. Use .Copy() before this call
+ * if you need the data afterward.
  *
- * @return  0 on success, 2 if invalid/in-flight, 3 if serialization failed.
+ * @return  0 on success, 2 if invalid/in-flight.
  */
 native int async2_SetBodyJSON(WebRequest handle, Json jsonHandle);
 
@@ -271,7 +271,7 @@ stock WebRequest async2_Post(const char[] url, const char[] body, WebCallback ca
 }
 
 // Creates and executes a POST request with a JSON body. Returns a handle that must be closed with async2_HttpClose.
-// The JSON handle is not consumed — caller still owns it and must close it separately.
+// The JSON handle is consumed (freed) — Close() after is a safe no-op.
 stock WebRequest async2_PostJson(const char[] url, Json jsonHandle, WebCallback callback, any userdata = 0) {
     WebRequest request = async2_HttpNew(userdata);
     if (request) {

@@ -113,8 +113,7 @@ req.SetHeader("Authorization", "Bearer my-token");
 Json body = async2_JsonCreateObject();
 body.SetString("action", "ban");
 body.SetInt("duration", 3600);
-req.SetBodyJSON(body);  // body copied to C++ here. changes to body don't change what's sent after this
-body.Close();
+req.SetBodyJSON(body);  // consumes body — handle is freed, Close() is optional (safe no-op)
 
 req.Execute("POST", "https://api.example.com/admin", OnResponse);
 ```
@@ -131,31 +130,28 @@ Json items = async2_JsonCreateArray();
 items.PushInt(1);
 items.PushInt(2);
 items.PushInt(3);
-obj.SetObject("items", items);  // moves items into obj — items becomes null after this
-items.Close();                  // safe — just frees the null handle
+obj.SetObject("items", items);  // consumes items — handle is freed, Close() is optional
+// SetObject/ArrayAppendObject consume the child handle. No deep copy.
+// If you need the child afterward, use .Copy():
+//   parent.SetObject("a", child.Copy());  // deep copy, original stays valid
+//   parent.SetObject("b", child);         // consumes child
 
 char buf[256];
 obj.Serialize(buf, sizeof(buf));
 // {"name":"player","score":100,"items":[1,2,3]}
 
-// SetObject/ArrayAppendObject use move semantics — the child is consumed
-// (emptied) after insertion. This avoids an expensive deep copy.
-// If you need the child to remain valid afterward, use .Copy():
-//   parent.SetObject("a", child.Copy());  // copies child, original stays valid
-//   parent.SetObject("b", child);         // moves child, child is now empty
-//
-// Do not create circular references (e.g. inserting a parent into its own
-// child via a child handle). JSON does not support cycles. Preventing cycles
-// by making a copy every time you SetObject is too much of a slow down.
-// smjansson has the same limitation. Serialization is depth-limited to 128 as a safety net.
-
 // Iterate object keys
-obj.ObjectIterReset();
 char key[64];
-while (obj.ObjectIterNext(key, sizeof(key))) {
-    JsonType type = obj.GetType(key);
-    PrintToServer("key: %s, type: %d", key, type);
+Iterator iter = Iterator.FromObject(obj);
+while (iter.Next(key, sizeof(key))) {
+    PrintToServer("key: %s", key);
 }
+iter.Close();
+
+// Lightweight reference — shares the same data, no deep copy
+Json ref = obj.Ref();
+ref.SetInt("score", 200);  // mutation visible through both handles
+ref.Close();  // close independently
 obj.Close();
 
 // Parse from string or file
@@ -267,7 +263,7 @@ async2 types (`WebRequest`, `Json`, `TcpSocket`, `UdpSocket`, `WsSocket`, `Linke
 
 Do not pass them to `CloseHandle()`, `delete`, or any API expecting a `Handle`. Always use the type's own `.Close()` method. When a plugin unloads, all handles it created are automatically cleaned up. Unloading the extension will close all handles.
 
-To pass a handle to another plugin, the receiving plugin should call `async2_SetHandlePlugin` to take cleanup ownership. Without this, the handle is freed when the original plugin unloads. For Json and LinkedList, `.Copy()` creates an independent deep copy owned by the calling plugin.
+To pass a handle to another plugin, the receiving plugin should call `async2_SetHandlePlugin` to take cleanup ownership. Without this, the handle is freed when the original plugin unloads. For Json and LinkedList, `.Copy()` creates an independent deep copy owned by the calling plugin. `.Ref()` creates a lightweight reference sharing the same data (no copy) — mutations through either handle are visible to both.
 
 ```sourcepawn
 // proper cleanup

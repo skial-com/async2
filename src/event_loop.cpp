@@ -1488,18 +1488,7 @@ void EventLoop::ProcessWsSend(WsOp* op) {
     WsConnection* conn = it->second;
     if (conn->handle_closed || !conn->curl_handle || conn->state != WsState::CONNECTED) return;
 
-    // Serialize body_node on event thread (SEND_JSON / SEND_MSGPACK)
-    if (op->body_node) {
-        if (op->type == WsOpType::SEND_JSON) {
-            std::string json = DataSerializeJson(*op->body_node, false);
-            op->data.assign(json.begin(), json.end());
-        } else if (op->type == WsOpType::SEND_MSGPACK) {
-            auto buf = MsgPackSerialize(*op->body_node);
-            op->data = std::move(buf);
-        }
-        DataNode::Decref(op->body_node);
-        op->body_node = nullptr;
-    }
+    // body_node serialization now happens on game thread (in natives)
 
     unsigned int flags;
     switch (op->type) {

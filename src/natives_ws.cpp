@@ -7,6 +7,7 @@
 #include "natives.h"
 #include "data/data_node.h"
 #include "data/data_handle.h"
+#include "msgpack/msgpack_serialize.h"
 
 extern EventLoop g_event_loop;
 
@@ -227,11 +228,15 @@ static cell_t WsSendNode(const cell_t* params, WsOpType type) {
     DataHandle* dh = g_handle_manager.GetDataHandle(params[2]);
     if (!dh || !dh->node) return 2;
 
-    dh->node->Incref();
     auto* op = new WsOp();
     op->type = type;
     op->handle_id = conn->handle_id;
-    op->body_node = dh->node;
+    if (type == WsOpType::SEND_JSON) {
+        std::string json = DataSerializeJson(*dh->node, false);
+        op->data.assign(json.begin(), json.end());
+    } else {
+        op->data = MsgPackSerialize(*dh->node);
+    }
     g_event_loop.EnqueueWsOp(op);
     g_handle_manager.FreeHandle(params[2]);
     return 0;

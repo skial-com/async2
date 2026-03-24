@@ -89,7 +89,7 @@ Two independent subsystems that cannot share state:
 
 - **`Async2Extension`** (`src/extension.cpp`) — SDK_OnLoad/Unload, OnGameFrame, client tracking (`g_client_handles` reverse index)
 - **`EventLoop`** (`src/event_loop.cpp`) — libuv loop + curl_multi + DnsResolver, all I/O, retry timers, pool stats
-- **`HttpRequest`** (`src/http_request.cpp`) — per-request state/lifecycle. `PrepareForSend()` (game thread), `SetupCurl()` (event thread: body serialization + compression + curl setup)
+- **`HttpRequest`** (`src/http_request.cpp`) — per-request state/lifecycle. `PrepareForSend()` (game thread), `SetupCurl()` (event thread: compression + curl setup)
 - **`HandleManager`** (`src/handle_manager.cpp`) — seven types: HTTP_REQUEST, JSON_VALUE, TCP_SOCKET, UDP_SOCKET, WS_SOCKET, LINKED_LIST, ITERATOR. `Handle.closed` flag + free list. `MarkHandleClosed` / `FreeHandle` pattern (see Handle lifecycle above)
 - **`DataNode`** (`src/data/data_node.h`, `src/data/data_node.cpp`) — tagged union DOM (Null/Bool/Int/Float/String/Array/Object/IntMap/Binary), pool-allocated via `FixedPool` (`src/data/data_node_pool.h`). Per-node `std::atomic<uint32_t> refcount` for lifetime management (jansson model). `Incref()` / `Decref()` — when refcount hits 0, recursively Decref children and return to pool.
 - **`DataHandle`** (`src/data/data_handle.cpp`) — thin wrapper: just `DataNode* node`. Destructor calls `Decref(node)`. No shared_ptr, no iterator state.
@@ -123,7 +123,7 @@ Shared: `GET_HTTP_REQUEST()` macro + `extern HandleManager g_handle_manager` in 
 
 `sourcepawn/async2.inc` — natives and methodmaps grouped by type, curl enums at end. Use `async2_HttpNew()` not `new WebRequest()`.
 
-- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` **consume the JSON handle** (Incref + FreeHandle, zero-copy); serialization happens on event thread. `Close()` after send is a safe no-op.
+- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` **consume the JSON handle**: serialize to string on game thread, store in `post_body`, FreeHandle. `Close()` after send is a safe no-op. No DataNode crosses to the event thread.
 - `WsSendJSON`/`WsSendMsgPack` also **consume the JSON handle** — same Incref + FreeHandle pattern.
 - `SetObject`/`ArraySetObject`/`ArrayAppendObject`/`IntMapSetObject` **consume the child handle** — Incref the child node, insert directly into parent, FreeHandle the child. `Close()` after is a safe no-op.
 - **`JsonRef()`** — O(1) lightweight reference: new handle sharing the same DataNode tree via Incref. Mutations through either handle affect both. Close independently. Pairs with `JsonCopy()` (deep copy).

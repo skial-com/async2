@@ -26,11 +26,15 @@
  *   WebRequest is not an object-like methodmap (spcomp 1.13+ enforces this).
  *
  * JSON HANDLE OWNERSHIP:
- *   - Parse/Create/Copy return new handles that must be closed with JsonClose
- *   - GetObject/GetArray/ArrayGetObject return SHALLOW handles into the same tree
+ *   - Parse/Create/Copy return new handles that must be closed with JsonClose.
+ *   - Ref() returns a lightweight reference sharing the same data (no copy).
+ *     Mutations through either handle are visible to both. Close independently.
+ *   - GetObject/GetArray/ArrayGetObject return child handles into the same tree.
  *     Mutations through child handles are visible through the parent.
- *     Closing the parent does NOT invalidate children (shared ownership via refcount).
- *   - SetObject/ArrayAppendObject DEEP-COPY the child. The child is not consumed.
+ *     Closing the parent frees unreferenced siblings — child subtrees survive.
+ *   - SetObject/ArrayAppendObject/SetBodyJSON/SetBodyMsgPack/WsSendJSON/WsSendMsgPack
+ *     CONSUME the child/body handle. The handle is freed after the call.
+ *     Close() after is a safe no-op. Use .Copy() first if you need the data afterward.
  *
  * TCP LIFECYCLE:
  *   Client: TcpNew → SetCallbacks → Connect → [onConnect] → Send → [onData] → Close
