@@ -16,6 +16,7 @@ class TcpSocket;
 class UdpSocket;
 class WsConnection;
 class LinkedList;
+class DataIterator;
 
 enum HandleType {
     HANDLE_HTTP_REQUEST,
@@ -24,6 +25,7 @@ enum HandleType {
     HANDLE_UDP_SOCKET,
     HANDLE_WS_SOCKET,
     HANDLE_LINKED_LIST,
+    HANDLE_ITERATOR,
     HANDLE_NONE,
 };
 
@@ -51,6 +53,7 @@ public:
     UdpSocket* GetUdpSocket(int handle);
     WsConnection* GetWsSocket(int handle);
     LinkedList* GetLinkedList(int handle);
+    DataIterator* GetDataIterator(int handle);
     int CreateHandle(void* pointer, HandleType type, IPluginContext* owner = nullptr);
     void FreeHandle(int handle);
     void MarkHandleClosed(int handle);

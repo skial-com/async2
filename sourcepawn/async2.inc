@@ -87,6 +87,7 @@
 #include <async2/curl_enums>
 #include <async2/json>
 #include <async2/intobject>
+#include <async2/iterator>
 #include <async2/msgpack>
 #include <async2/hjson>
 #include <async2/http>

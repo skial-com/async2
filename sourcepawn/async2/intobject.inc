@@ -69,11 +69,6 @@ native int async2_IntObjectSize(Json handle);
 native bool async2_IntObjectHasKey(Json handle, int key);
 native bool async2_IntObject64HasKey(Json handle, int key[2]);
 
-// Iterator — same pattern as ObjectIter but yields int keys.
-// Do not add or remove keys while iterating.
-native int async2_IntObjectIterReset(Json handle);
-native bool async2_IntObjectIterNext(Json handle, int &key);
-native bool async2_IntObject64IterNext(Json handle, int key[2]);
 
 methodmap IntObject < Json {
     public static IntObject Create() {
@@ -218,19 +213,6 @@ methodmap IntObject < Json {
 
     public bool RemoveKey64(int key[2]) {
         return async2_IntObject64RemoveKey(this, key);
-    }
-
-    // Iterator
-    public void IterReset() {
-        async2_IntObjectIterReset(this);
-    }
-
-    public bool IterNext(int &key) {
-        return async2_IntObjectIterNext(this, key);
-    }
-
-    public bool IterNext64(int key[2]) {
-        return async2_IntObject64IterNext(this, key);
     }
 
     // Inherited from Json: Copy(), Equals(), Serialize(), Type, Close()

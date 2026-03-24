@@ -56,6 +56,7 @@ set(SOURCES
     src/compression.cpp
     src/data/data_node.cpp
     src/data/data_handle.cpp
+    src/data/data_iterator.cpp
     src/natives_http.cpp
     src/natives_json.cpp
     src/natives_curl.cpp

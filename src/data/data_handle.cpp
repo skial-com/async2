@@ -14,7 +14,6 @@ DataHandle::~DataHandle() {
             DataNode::Destroy(node);
         }
     }
-    delete iter_;
 }
 
 DataHandle* DataHandle::Parse(const char* data, size_t len) {
@@ -253,30 +252,6 @@ bool DataHandle::IntMapHasKey(int64_t key) const {
     return node->IntMapContains(key);
 }
 
-// IntMap iterator
-void DataHandle::IntMapIterReset() {
-    if (iter_) iter_->intmap_active = false;
-    if (!node || node->type != DataType::IntMap) return;
-    if (!iter_) iter_ = new DataHandleIterState();
-    iter_->intmap_iter = node->intmap.begin();
-    iter_->intmap_active = true;
-}
-
-bool DataHandle::IntMapIterNext() {
-    if (!iter_ || !iter_->intmap_active) return false;
-    if (iter_->intmap_iter == node->intmap.end()) {
-        iter_->intmap_active = false;
-        return false;
-    }
-    iter_->intmap_key = iter_->intmap_iter->first;
-    ++iter_->intmap_iter;
-    return true;
-}
-
-int64_t DataHandle::IntMapIterKey() const {
-    return iter_ ? iter_->intmap_key : 0;
-}
-
 // Object mutation
 bool DataHandle::RemoveKey(const char* key) {
     if (!node) return false;
@@ -384,31 +359,6 @@ void DataHandle::ArrayAppendBool(bool val) {
 void DataHandle::ArrayAppendNull() {
     if (!node || node->type != DataType::Array) return;
     node->arr.push_back(DataNode::MakeNull());
-}
-
-// Object iterator
-void DataHandle::ObjectIterReset() {
-    if (iter_) iter_->obj_active = false;
-    if (!node || node->type != DataType::Object) return;
-    if (!iter_) iter_ = new DataHandleIterState();
-    iter_->obj_iter = node->obj.begin();
-    iter_->obj_active = true;
-}
-
-bool DataHandle::ObjectIterNext() {
-    if (!iter_ || !iter_->obj_active) return false;
-    if (iter_->obj_iter == node->obj.end()) {
-        iter_->obj_active = false;
-        return false;
-    }
-    // Capture current, then advance for next call
-    iter_->obj_key = iter_->obj_iter->first.c_str();
-    ++iter_->obj_iter;
-    return true;
-}
-
-const char* DataHandle::ObjectIterKey() const {
-    return (iter_ && iter_->obj_key) ? iter_->obj_key : "";
 }
 
 // Serialize

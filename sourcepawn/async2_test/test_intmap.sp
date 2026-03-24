@@ -180,12 +180,13 @@ void Test_IntObject_Iterator() {
     int sum_vals = 0;
     int count = 0;
     int key;
-    map.IterReset();
-    while (map.IterNext(key)) {
+    Iterator iter = Iterator.FromIntMap(map);
+    while (iter.NextInt(key)) {
         sum_keys += key;
         sum_vals += map.GetInt(key);
         count++;
     }
+    iter.Close();
     AssertEq(count, 3, "IntObject iterator count");
     AssertEq(sum_keys, 60, "IntObject iterator key sum");
     AssertEq(sum_vals, 600, "IntObject iterator value sum");
@@ -195,8 +196,9 @@ void Test_IntObject_Iterator() {
 void Test_IntObject_IteratorEmpty() {
     IntObject map = IntObject.Create();
     int key;
-    map.IterReset();
-    Assert(!map.IterNext(key), "IntObject empty iterator returns false");
+    Iterator iter = Iterator.FromIntMap(map);
+    Assert(!iter.NextInt(key), "IntObject empty iterator returns false");
+    iter.Close();
     map.Close();
 }
 
@@ -452,10 +454,11 @@ void Test_IntObject_NegativeKeys() {
     // Iterator should visit all
     int count = 0;
     int key;
-    map.IterReset();
-    while (map.IterNext(key)) {
+    Iterator iter = Iterator.FromIntMap(map);
+    while (iter.NextInt(key)) {
         count++;
     }
+    iter.Close();
     AssertEq(count, 3, "IntObject negative keys iterator count");
     map.Close();
 }
@@ -522,10 +525,11 @@ void Test_IntObject_64bit_Iterator() {
 
     int count = 0;
     int key64[2];
-    map.IterReset();
-    while (map.IterNext64(key64)) {
+    Iterator iter = Iterator.FromIntMap(map);
+    while (iter.NextInt64(key64)) {
         count++;
     }
+    iter.Close();
     AssertEq(count, 3, "IntObject 64-bit iterator count");
     map.Close();
 }

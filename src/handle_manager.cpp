@@ -5,6 +5,7 @@
 #include "udp_socket.h"
 #include "ws_connection.h"
 #include "linked_list.h"
+#include "data/data_iterator.h"
 
 HandleManager::HandleManager() {
     next_handle_ = 1;
@@ -58,6 +59,13 @@ LinkedList* HandleManager::GetLinkedList(int handle) {
     if (it == used_handles_.end() || it->second.type != HANDLE_LINKED_LIST || it->second.closed)
         return nullptr;
     return static_cast<LinkedList*>(it->second.pointer);
+}
+
+DataIterator* HandleManager::GetDataIterator(int handle) {
+    auto it = used_handles_.find(handle);
+    if (it == used_handles_.end() || it->second.type != HANDLE_ITERATOR || it->second.closed)
+        return nullptr;
+    return static_cast<DataIterator*>(it->second.pointer);
 }
 
 int HandleManager::CreateHandle(void* pointer, HandleType type, IPluginContext* owner) {
@@ -166,6 +174,9 @@ void HandleManager::DeleteHandlePointer(Handle h) {
             break;
         case HANDLE_LINKED_LIST:
             delete static_cast<LinkedList*>(h.pointer);
+            break;
+        case HANDLE_ITERATOR:
+            delete static_cast<DataIterator*>(h.pointer);
             break;
         default:
             break;

@@ -5,6 +5,7 @@
 #include "extension.h"
 #include "http_request.h"
 #include "data_handle.h"
+#include "data/data_iterator.h"
 #include "natives.h"
 
 // Path error state (game thread only)
@@ -455,19 +456,62 @@ static cell_t Native_JsonArrayGetObject(IPluginContext* pContext, const cell_t* 
     return WrapChildNode(pContext, json, val);
 }
 
-// Object iterator
-static cell_t Native_JsonObjectIterReset(IPluginContext* pContext, const cell_t* params) {
-    GET_JSON_HANDLE()
-    json->ObjectIterReset();
-    return 0;
+// Iterator creation
+static cell_t Native_ObjectIterCreate(IPluginContext* pContext, const cell_t* params) {
+    DataHandle* json = g_handle_manager.GetDataHandle(params[1]);
+    if (!json || !json->node || json->node->type != DataType::Object)
+        return 0;
+    DataIterator* iter = DataIterator::CreateObject(json->root, json->node);
+    if (!iter) return 0;
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(iter), HANDLE_ITERATOR, pContext);
+    if (handle == 0) { delete iter; return 0; }
+    return handle;
 }
 
-static cell_t Native_JsonObjectIterNext(IPluginContext* pContext, const cell_t* params) {
-    GET_JSON_HANDLE()
-    if (!json->ObjectIterNext())
+static cell_t Native_IntMapIterCreate(IPluginContext* pContext, const cell_t* params) {
+    DataHandle* json = g_handle_manager.GetDataHandle(params[1]);
+    if (!json || !json->node || json->node->type != DataType::IntMap)
         return 0;
-    pContext->StringToLocal(params[2], params[3], json->ObjectIterKey());
+    DataIterator* iter = DataIterator::CreateIntMap(json->root, json->node);
+    if (!iter) return 0;
+    int handle = g_handle_manager.CreateHandle(static_cast<void*>(iter), HANDLE_ITERATOR, pContext);
+    if (handle == 0) { delete iter; return 0; }
+    return handle;
+}
+
+static cell_t Native_IterNext(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || iter->Type() != IteratorType::Object) return 0;
+    if (!iter->Next()) return 0;
+    pContext->StringToLocal(params[2], params[3], iter->ObjectKey());
     return 1;
+}
+
+static cell_t Native_IntMapIterNext(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || iter->Type() != IteratorType::IntMap) return 0;
+    if (!iter->Next()) return 0;
+    cell_t* out;
+    pContext->LocalToPhysAddr(params[2], &out);
+    *out = static_cast<cell_t>(iter->IntMapKey());
+    return 1;
+}
+
+static cell_t Native_IntMapIterNext64(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || iter->Type() != IteratorType::IntMap) return 0;
+    if (!iter->Next()) return 0;
+    cell_t* out;
+    pContext->LocalToPhysAddr(params[2], &out);
+    WriteInt64(out, iter->IntMapKey());
+    return 1;
+}
+
+static cell_t Native_IterClose(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter) return 0;
+    g_handle_manager.FreeHandle(params[1]);
+    return 0;
 }
 
 // Object setters
@@ -1100,32 +1144,6 @@ static cell_t Native_IntMapHasKey64(IPluginContext* pContext, const cell_t* para
     return json->IntMapHasKey(key) ? 1 : 0;
 }
 
-// Iterator
-static cell_t Native_IntMapIterReset(IPluginContext* pContext, const cell_t* params) {
-    GET_JSON_HANDLE()
-    json->IntMapIterReset();
-    return 0;
-}
-
-static cell_t Native_IntMapIterNext(IPluginContext* pContext, const cell_t* params) {
-    GET_JSON_HANDLE()
-    if (!json->IntMapIterNext())
-        return 0;
-    cell_t* out;
-    pContext->LocalToPhysAddr(params[2], &out);
-    *out = static_cast<cell_t>(json->IntMapIterKey());
-    return 1;
-}
-
-static cell_t Native_IntMapIterNext64(IPluginContext* pContext, const cell_t* params) {
-    GET_JSON_HANDLE()
-    if (!json->IntMapIterNext())
-        return 0;
-    cell_t* out;
-    pContext->LocalToPhysAddr(params[2], &out);
-    WriteInt64(out, json->IntMapIterKey());
-    return 1;
-}
 
 // async2_JsonGetBuffer(Json handle, char[] buffer, int maxlen, int offset = 0) → bytes copied
 static cell_t Native_JsonGetBuffer(IPluginContext* pContext, const cell_t* params) {
@@ -1172,8 +1190,12 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_JsonArrayGetFloat",        Native_JsonArrayGetFloat},
     {"async2_JsonArrayGetBool",         Native_JsonArrayGetBool},
     {"async2_JsonArrayGetObject",       Native_JsonArrayGetObject},
-    {"async2_JsonObjectIterReset",      Native_JsonObjectIterReset},
-    {"async2_JsonObjectIterNext",       Native_JsonObjectIterNext},
+    {"async2_ObjectIterCreate",         Native_ObjectIterCreate},
+    {"async2_IntMapIterCreate",         Native_IntMapIterCreate},
+    {"async2_IterNext",                 Native_IterNext},
+    {"async2_IntMapIterNext",           Native_IntMapIterNext},
+    {"async2_IntMapIterNext64",         Native_IntMapIterNext64},
+    {"async2_IterClose",                Native_IterClose},
     {"async2_JsonSetString",            Native_JsonSetString},
     {"async2_JsonSetInt",               Native_JsonSetInt},
     {"async2_JsonSetInt64",             Native_JsonSetInt64},
@@ -1251,8 +1273,5 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_IntObjectSize",               Native_IntMapSize},
     {"async2_IntObjectHasKey",             Native_IntMapHasKey},
     {"async2_IntObject64HasKey",           Native_IntMapHasKey64},
-    {"async2_IntObjectIterReset",          Native_IntMapIterReset},
-    {"async2_IntObjectIterNext",           Native_IntMapIterNext},
-    {"async2_IntObject64IterNext",         Native_IntMapIterNext64},
     {nullptr,                           nullptr},
 };

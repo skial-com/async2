@@ -103,30 +103,6 @@ native bool async2_JsonArrayGetBool(Json jsonHandle, int index);
 // Must be closed with async2_JsonClose when done.
 native Json async2_JsonArrayGetObject(Json jsonHandle, int index);
 
-// ============================================================================
-// Object Iterator
-// ============================================================================
-// Iterates all key-value pairs in an object. O(1) per step, O(n) total.
-// The iterator state is stored on the handle — no separate iterator to create.
-// Do not add or remove keys while iterating. Changing existing values is safe.
-//
-// Usage:
-//   char key[64];
-//   obj.ObjectIterReset();
-//   while (obj.ObjectIterNext(key, sizeof(key))) {
-//       int val = obj.GetInt(key);
-//       // or: Json child = obj.GetObject(key);
-//   }
-// ============================================================================
-
-// Resets the iterator to the beginning of the object.
-native int async2_JsonObjectIterReset(Json jsonHandle);
-
-// Advances to the next key-value pair and copies the key into buf.
-// Returns true if a pair was available, false when iteration is complete.
-native bool async2_JsonObjectIterNext(Json jsonHandle, char[] key, int maxlen);
-
-
 // Object setters — set or overwrite a key. If the key exists, the old value is destroyed.
 native int async2_JsonSetString(Json jsonHandle, const char[] key, const char[] value);
 native int async2_JsonSetInt(Json jsonHandle, const char[] key, int value);
@@ -367,14 +343,6 @@ methodmap Json __nullable__ {
 
     public Json ArrayGetObject(int index) {
         return view_as<Json>(async2_JsonArrayGetObject(this, index));
-    }
-
-    public void ObjectIterReset() {
-        async2_JsonObjectIterReset(this);
-    }
-
-    public bool ObjectIterNext(char[] key, int maxlen) {
-        return async2_JsonObjectIterNext(this, key, maxlen);
     }
 
     public void SetString(const char[] key, const char[] value) {

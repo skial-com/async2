@@ -310,11 +310,12 @@ void Test_ObjectIteration() {
     // Verify iterator visits all keys
     int sum = 0;
     char key[64];
-    obj.ObjectIterReset();
-    while (obj.ObjectIterNext(key, sizeof(key))) {
+    Iterator iter = Iterator.FromObject(obj);
+    while (iter.Next(key, sizeof(key))) {
         Assert(StrEqual(key, "a") || StrEqual(key, "b"), "ObjectIterNext valid key");
         sum++;
     }
+    iter.Close();
     AssertEq(sum, 2, "Object iteration count");
     obj.Close();
 }

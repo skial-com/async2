@@ -420,6 +420,7 @@ public:
             }
             case HANDLE_JSON_VALUE:
             case HANDLE_LINKED_LIST:
+            case HANDLE_ITERATOR:
                 g_handle_manager.FreeHandle(id);
                 break;
             default:
