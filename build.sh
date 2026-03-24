@@ -3,6 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASAN=0
+DEBUG=0
 ARCH=""
 SM_PATH=""
 
@@ -10,6 +11,8 @@ SM_PATH=""
 for arg in "$@"; do
     if [ "$arg" = "--asan" ]; then
         ASAN=1
+    elif [ "$arg" = "--debug" ]; then
+        DEBUG=1
     elif [ -z "$ARCH" ]; then
         ARCH="$arg"
     elif [ -z "$SM_PATH" ]; then
@@ -31,16 +34,21 @@ for arch in "${ARCHS[@]}"; do
     build_dir="build/$arch"
     mkdir -p "$build_dir" && cd "$build_dir"
 
+    BUILD_TYPE="Release"
+    if [ "$ASAN" = "1" ] || [ "$DEBUG" = "1" ]; then
+        BUILD_TYPE="Debug"
+    fi
+
     if [ "$ASAN" = "1" ]; then
         echo "(AddressSanitizer enabled)"
         cmake "$SCRIPT_DIR" -DSM_PATH="$SM_PATH" -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_C_FLAGS="$ASAN_FLAGS" -DCMAKE_CXX_FLAGS="$ASAN_FLAGS" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address"
     elif [ "$arch" = "x86" ]; then
-        cmake "$SCRIPT_DIR" -DSM_PATH="$SM_PATH" -DCMAKE_BUILD_TYPE=Release \
+        cmake "$SCRIPT_DIR" -DSM_PATH="$SM_PATH" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
             -DCMAKE_C_FLAGS="-m32" -DCMAKE_CXX_FLAGS="-m32" -DCMAKE_SHARED_LINKER_FLAGS="-m32"
     else
-        cmake "$SCRIPT_DIR" -DSM_PATH="$SM_PATH" -DCMAKE_BUILD_TYPE=Release \
+        cmake "$SCRIPT_DIR" -DSM_PATH="$SM_PATH" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
             -DCMAKE_C_FLAGS="" -DCMAKE_CXX_FLAGS="" -DCMAKE_SHARED_LINKER_FLAGS=""
     fi
 
