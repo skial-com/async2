@@ -80,9 +80,9 @@ HttpRequest::~HttpRequest() {
     if (built_headers_)
         curl_slist_free_all(built_headers_);
     if (body_node)
-        DataNode::Destroy(body_node);
+        DataNode::Decref(body_node);
     if (response_node)
-        DataNode::Destroy(response_node);
+        DataNode::Decref(response_node);
 }
 
 void HttpRequest::SetHeader(const char* key, const char* value) {
@@ -102,7 +102,7 @@ void HttpRequest::ClearHeaders() {
 
 void HttpRequest::SetBody(const char* data, size_t length) {
     if (body_node) {
-        DataNode::Destroy(body_node);
+        DataNode::Decref(body_node);
         body_node = nullptr;
         body_format = BodyFormat::NONE;
     }
@@ -117,7 +117,7 @@ void HttpRequest::SetBodyString(const char* str) {
 void HttpRequest::SetBodyNode(DataNode* node, BodyFormat format) {
     post_body.clear();
     if (body_node)
-        DataNode::Destroy(body_node);
+        DataNode::Decref(body_node);
     body_node = node;
     body_format = format;
 }
@@ -135,7 +135,7 @@ void HttpRequest::SetupCurl() {
             auto buf = MsgPackSerialize(*body_node);
             post_body.assign(reinterpret_cast<const char*>(buf.data()), buf.size());
         }
-        DataNode::Destroy(body_node);
+        DataNode::Decref(body_node);
         body_node = nullptr;
     }
 
@@ -200,7 +200,7 @@ void HttpRequest::PrepareForRetry() {
     completed = false;
     in_retry_wait = true;
     if (response_node) {
-        DataNode::Destroy(response_node);
+        DataNode::Decref(response_node);
         response_node = nullptr;
     }
 }

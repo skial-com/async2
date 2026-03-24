@@ -86,35 +86,33 @@ DataNode* DataNode::MakeBinary(std::vector<uint8_t>&& data) {
     return n;
 }
 
-// ---------- Destroy ----------
+// ---------- Decref ----------
 
-void DataNode::Destroy(DataNode* node) {
+void DataNode::Decref(DataNode* node) {
     if (!node) return;
 
-    // If a child handle still references this node, orphan it instead of destroying
-    if (node->refcount > 0) {
-        node->orphaned = true;
-        return;
-    }
+    if (node->refcount.fetch_sub(1, std::memory_order_acq_rel) > 1)
+        return;  // other references still exist
 
+    // refcount hit 0 — destroy this node and recursively Decref children
     switch (node->type) {
         case DataType::String:
             node->str_val.~basic_string();
             break;
         case DataType::Array:
             for (auto* child : node->arr)
-                Destroy(child);
+                Decref(child);
             node->arr.~vector();
             break;
         case DataType::Object:
             for (auto& [key, val] : node->obj)
-                Destroy(val);
+                Decref(val);
             using ObjMap = DataMap<std::string, DataNode*>;
             node->obj.~ObjMap();
             break;
         case DataType::IntMap:
             for (auto& [key, val] : node->intmap)
-                Destroy(val);
+                Decref(val);
             using IntMapType = DataMap<int64_t, DataNode*>;
             node->intmap.~IntMapType();
             break;
@@ -130,7 +128,7 @@ void DataNode::Destroy(DataNode* node) {
 }
 
 // ---------- StealFrom ----------
-// Moves contents from src into a new node, leaving src as Null (safe to Destroy).
+// Moves contents from src into a new node, leaving src as Null (safe to Decref).
 
 DataNode* DataNode::StealFrom(DataNode* src) {
     auto* dst = new (g_pool.Alloc()) DataNode();
@@ -257,11 +255,11 @@ bool DataNode::ObjContains(const std::string& key) const {
 }
 
 void DataNode::ObjInsert(std::string key, DataNode* val) {
-    if (type != DataType::Object) { Destroy(val); return; }
+    if (type != DataType::Object) { Decref(val); return; }
     auto [it, inserted] = obj.try_emplace(std::move(key), val);
     if (!inserted) {
         // Update in-place to preserve iterator validity
-        Destroy(it->second);
+        Decref(it->second);
         it.value() = val;
     }
 }
@@ -271,7 +269,7 @@ bool DataNode::ObjErase(const std::string& key) {
     auto it = obj.find(key);
     if (it == obj.end()) return false;
 
-    Destroy(it->second);
+    Decref(it->second);
     obj.erase(it);
     return true;
 }
@@ -284,7 +282,7 @@ size_t DataNode::ObjSize() const {
 void DataNode::ObjClear() {
     if (type != DataType::Object) return;
     for (auto& [key, val] : obj)
-        Destroy(val);
+        Decref(val);
     obj.clear();
 }
 
@@ -294,7 +292,7 @@ void DataNode::ObjMerge(const DataNode* other, bool overwrite) {
         auto it = obj.find(key);
         if (it != obj.end()) {
             if (overwrite) {
-                Destroy(it->second);
+                Decref(it->second);
                 it.value() = val->DeepCopy();
             }
         } else {
@@ -318,10 +316,10 @@ bool DataNode::IntMapContains(int64_t key) const {
 }
 
 void DataNode::IntMapInsert(int64_t key, DataNode* val) {
-    if (type != DataType::IntMap) { Destroy(val); return; }
+    if (type != DataType::IntMap) { Decref(val); return; }
     auto [it, inserted] = intmap.try_emplace(key, val);
     if (!inserted) {
-        Destroy(it->second);
+        Decref(it->second);
         it.value() = val;
     }
 }
@@ -331,7 +329,7 @@ bool DataNode::IntMapErase(int64_t key) {
     auto it = intmap.find(key);
     if (it == intmap.end()) return false;
 
-    Destroy(it->second);
+    Decref(it->second);
     intmap.erase(it);
     return true;
 }
@@ -344,7 +342,7 @@ size_t DataNode::IntMapSize() const {
 void DataNode::IntMapClear() {
     if (type != DataType::IntMap) return;
     for (auto& [key, val] : intmap)
-        Destroy(val);
+        Decref(val);
     intmap.clear();
 }
 
@@ -354,7 +352,7 @@ void DataNode::IntMapMerge(const DataNode* other, bool overwrite) {
         auto it = intmap.find(key);
         if (it != intmap.end()) {
             if (overwrite) {
-                Destroy(it->second);
+                Decref(it->second);
                 it.value() = val->DeepCopy();
             }
         } else {
@@ -367,21 +365,21 @@ void DataNode::IntMapMerge(const DataNode* other, bool overwrite) {
 
 bool DataNode::ArrRemove(size_t index) {
     if (type != DataType::Array || index >= arr.size()) return false;
-    Destroy(arr[index]);
+    Decref(arr[index]);
     arr.erase(arr.begin() + index);
     return true;
 }
 
 void DataNode::ArrSet(size_t index, DataNode* val) {
-    if (type != DataType::Array || index >= arr.size()) { Destroy(val); return; }
-    Destroy(arr[index]);
+    if (type != DataType::Array || index >= arr.size()) { Decref(val); return; }
+    Decref(arr[index]);
     arr[index] = val;
 }
 
 void DataNode::ArrClear() {
     if (type != DataType::Array) return;
     for (auto* child : arr)
-        Destroy(child);
+        Decref(child);
     arr.clear();
 }
 
@@ -439,7 +437,7 @@ namespace {
 
 static constexpr int kMaxParseDepth = 1024;
 
-// Returns nullptr on error. Callers must Destroy(node) on nullptr return
+// Returns nullptr on error. Callers must Decref(node) on nullptr return
 // to clean up the partially-built tree.
 static DataNode* od_to_node(simdjson::ondemand::value val, int depth = 0) {
     if (depth > kMaxParseDepth) return nullptr;
@@ -474,11 +472,11 @@ static DataNode* od_to_node(simdjson::ondemand::value val, int depth = 0) {
         case simdjson::ondemand::json_type::array: {
             auto* node = DataNode::MakeArray();
             auto arr = val.get_array();
-            if (arr.error()) { DataNode::Destroy(node); return nullptr; }
+            if (arr.error()) { DataNode::Decref(node); return nullptr; }
             for (auto child : arr.value()) {
-                if (child.error()) { DataNode::Destroy(node); return nullptr; }
+                if (child.error()) { DataNode::Decref(node); return nullptr; }
                 auto* child_node = od_to_node(child.value(), depth + 1);
-                if (!child_node) { DataNode::Destroy(node); return nullptr; }
+                if (!child_node) { DataNode::Decref(node); return nullptr; }
                 node->arr.push_back(child_node);
             }
             return node;
@@ -486,13 +484,13 @@ static DataNode* od_to_node(simdjson::ondemand::value val, int depth = 0) {
         case simdjson::ondemand::json_type::object: {
             auto* node = DataNode::MakeObject();
             auto obj_result = val.get_object();
-            if (obj_result.error()) { DataNode::Destroy(node); return nullptr; }
+            if (obj_result.error()) { DataNode::Decref(node); return nullptr; }
             for (auto field : obj_result.value()) {
-                if (field.error()) { DataNode::Destroy(node); return nullptr; }
+                if (field.error()) { DataNode::Decref(node); return nullptr; }
                 auto key = field.unescaped_key();
-                if (key.error()) { DataNode::Destroy(node); return nullptr; }
+                if (key.error()) { DataNode::Decref(node); return nullptr; }
                 auto* val_node = od_to_node(field.value(), depth + 1);
-                if (!val_node) { DataNode::Destroy(node); return nullptr; }
+                if (!val_node) { DataNode::Decref(node); return nullptr; }
                 auto kv = key.value();
                 node->obj.emplace(std::string(kv.data(), kv.size()), val_node);
             }
@@ -534,11 +532,11 @@ static DataNode* od_to_node_doc(simdjson::ondemand::document& doc) {
         case simdjson::ondemand::json_type::array: {
             auto* node = DataNode::MakeArray();
             auto arr = doc.get_array();
-            if (arr.error()) { DataNode::Destroy(node); return nullptr; }
+            if (arr.error()) { DataNode::Decref(node); return nullptr; }
             for (auto child : arr.value()) {
-                if (child.error()) { DataNode::Destroy(node); return nullptr; }
+                if (child.error()) { DataNode::Decref(node); return nullptr; }
                 auto* child_node = od_to_node(child.value(), 1);
-                if (!child_node) { DataNode::Destroy(node); return nullptr; }
+                if (!child_node) { DataNode::Decref(node); return nullptr; }
                 node->arr.push_back(child_node);
             }
             return node;
@@ -546,13 +544,13 @@ static DataNode* od_to_node_doc(simdjson::ondemand::document& doc) {
         case simdjson::ondemand::json_type::object: {
             auto* node = DataNode::MakeObject();
             auto obj_result = doc.get_object();
-            if (obj_result.error()) { DataNode::Destroy(node); return nullptr; }
+            if (obj_result.error()) { DataNode::Decref(node); return nullptr; }
             for (auto field : obj_result.value()) {
-                if (field.error()) { DataNode::Destroy(node); return nullptr; }
+                if (field.error()) { DataNode::Decref(node); return nullptr; }
                 auto key = field.unescaped_key();
-                if (key.error()) { DataNode::Destroy(node); return nullptr; }
+                if (key.error()) { DataNode::Decref(node); return nullptr; }
                 auto* val_node = od_to_node(field.value(), 1);
-                if (!val_node) { DataNode::Destroy(node); return nullptr; }
+                if (!val_node) { DataNode::Decref(node); return nullptr; }
                 auto kv = key.value();
                 node->obj.emplace(std::string(kv.data(), kv.size()), val_node);
             }

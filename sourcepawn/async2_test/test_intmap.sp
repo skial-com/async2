@@ -161,12 +161,12 @@ void Test_IntObject_SetObject_Move() {
     child.SetInt("val", 1);
     map.SetObject(1, child);
 
-    // Child is now null after move
-    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "IntObject SetObject moves child");
+    // child handle consumed by SetObject (Close is safe no-op)
+    child.Close();
+
     Json got = map.GetObject(1);
     AssertEq(got.GetInt("val"), 1, "IntObject SetObject data accessible");
     got.Close();
-    child.Close();
     map.Close();
 }
 

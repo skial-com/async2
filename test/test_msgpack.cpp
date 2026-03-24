@@ -30,7 +30,7 @@ static void test_nil() {
     uint8_t data[] = {0xc0};
     auto* n = MsgPackParse(data, 1);
     CHECK(n && n->type == DataType::Null, "nil");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_bool() {
@@ -40,86 +40,86 @@ static void test_bool() {
     auto* nf = MsgPackParse(f, 1);
     CHECK(nt && nt->type == DataType::Bool && nt->bool_val == true, "true");
     CHECK(nf && nf->type == DataType::Bool && nf->bool_val == false, "false");
-    DataNode::Destroy(nt);
-    DataNode::Destroy(nf);
+    DataNode::Decref(nt);
+    DataNode::Decref(nf);
 }
 
 static void test_positive_fixint() {
     uint8_t data[] = {0x00};
     auto* n0 = MsgPackParse(data, 1);
     CHECK(n0 && n0->type == DataType::Int && n0->int_val == 0, "fixint 0");
-    DataNode::Destroy(n0);
+    DataNode::Decref(n0);
 
     data[0] = 0x7f;
     auto* n127 = MsgPackParse(data, 1);
     CHECK(n127 && n127->type == DataType::Int && n127->int_val == 127, "fixint 127");
-    DataNode::Destroy(n127);
+    DataNode::Decref(n127);
 
     data[0] = 42;
     auto* n42 = MsgPackParse(data, 1);
     CHECK(n42 && n42->type == DataType::Int && n42->int_val == 42, "fixint 42");
-    DataNode::Destroy(n42);
+    DataNode::Decref(n42);
 }
 
 static void test_negative_fixint() {
     uint8_t data[] = {0xff}; // -1
     auto* n = MsgPackParse(data, 1);
     CHECK(n && n->type == DataType::Int && n->int_val == -1, "neg fixint -1");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 
     data[0] = 0xe0; // -32
     auto* n32 = MsgPackParse(data, 1);
     CHECK(n32 && n32->type == DataType::Int && n32->int_val == -32, "neg fixint -32");
-    DataNode::Destroy(n32);
+    DataNode::Decref(n32);
 }
 
 static void test_uint8() {
     uint8_t data[] = {0xcc, 0xff};
     auto* n = MsgPackParse(data, 2);
     CHECK(n && n->type == DataType::Int && n->int_val == 255, "uint8 255");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_uint16() {
     uint8_t data[] = {0xcd, 0x01, 0x00};
     auto* n = MsgPackParse(data, 3);
     CHECK(n && n->type == DataType::Int && n->int_val == 256, "uint16 256");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_uint32() {
     uint8_t data[] = {0xce, 0x00, 0x01, 0x00, 0x00};
     auto* n = MsgPackParse(data, 5);
     CHECK(n && n->type == DataType::Int && n->int_val == 65536, "uint32 65536");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_uint64() {
     uint8_t data[] = {0xcf, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00};
     auto* n = MsgPackParse(data, 9);
     CHECK(n && n->type == DataType::Int && n->int_val == 4294967296LL, "uint64");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_int8() {
     uint8_t data[] = {0xd0, 0x80}; // -128
     auto* n = MsgPackParse(data, 2);
     CHECK(n && n->type == DataType::Int && n->int_val == -128, "int8 -128");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_int16() {
     uint8_t data[] = {0xd1, 0x80, 0x00}; // -32768
     auto* n = MsgPackParse(data, 3);
     CHECK(n && n->type == DataType::Int && n->int_val == -32768, "int16 -32768");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_int32() {
     uint8_t data[] = {0xd2, 0x80, 0x00, 0x00, 0x00}; // -2147483648
     auto* n = MsgPackParse(data, 5);
     CHECK(n && n->type == DataType::Int && n->int_val == -2147483648LL, "int32 min");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_int64() {
@@ -127,7 +127,7 @@ static void test_int64() {
     uint8_t data[] = {0xd3, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
     auto* n = MsgPackParse(data, 9);
     CHECK(n && n->type == DataType::Int && n->int_val == -1, "int64 -1");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_float32() {
@@ -135,7 +135,7 @@ static void test_float32() {
     uint8_t data[] = {0xca, 0x40, 0x48, 0xf5, 0xc3};
     auto* n = MsgPackParse(data, 5);
     CHECK(n && n->type == DataType::Float && n->float_val > 3.13 && n->float_val < 3.15, "float32");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_float64() {
@@ -143,14 +143,14 @@ static void test_float64() {
     uint8_t data[] = {0xcb, 0x40, 0x09, 0x1e, 0xb8, 0x51, 0xeb, 0x85, 0x1f};
     auto* n = MsgPackParse(data, 9);
     CHECK(n && n->type == DataType::Float && n->float_val > 3.139 && n->float_val < 3.141, "float64");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_fixstr() {
     uint8_t data[] = {0xa5, 'h', 'e', 'l', 'l', 'o'};
     auto* n = MsgPackParse(data, 6);
     CHECK(n && n->type == DataType::String && n->str_val == "hello", "fixstr");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_str8() {
@@ -158,14 +158,14 @@ static void test_str8() {
     uint8_t data[] = {0xd9, 0x04, 't', 'e', 's', 't'};
     auto* n = MsgPackParse(data, 6);
     CHECK(n && n->type == DataType::String && n->str_val == "test", "str8");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_str() {
     uint8_t data[] = {0xa0};
     auto* n = MsgPackParse(data, 1);
     CHECK(n && n->type == DataType::String && n->str_val == "", "empty fixstr");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_bin8() {
@@ -173,7 +173,7 @@ static void test_bin8() {
     auto* n = MsgPackParse(data, 5);
     CHECK(n && n->type == DataType::Binary && n->bin.size() == 3 &&
           n->bin[0] == 0xde && n->bin[1] == 0xad && n->bin[2] == 0xbe, "bin8");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_bin16() {
@@ -181,7 +181,7 @@ static void test_bin16() {
     data.resize(3 + 256, 0x42);
     auto* n = MsgPackParse(data.data(), data.size());
     CHECK(n && n->type == DataType::Binary && n->bin.size() == 256, "bin16");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_fixarray() {
@@ -191,14 +191,14 @@ static void test_fixarray() {
     CHECK(n && n->type == DataType::Array && n->arr.size() == 3 &&
           n->arr[0]->int_val == 1 && n->arr[1]->int_val == 2 && n->arr[2]->int_val == 3,
           "fixarray");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_array() {
     uint8_t data[] = {0x90};
     auto* n = MsgPackParse(data, 1);
     CHECK(n && n->type == DataType::Array && n->arr.empty(), "empty array");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_fixmap() {
@@ -208,14 +208,14 @@ static void test_fixmap() {
     CHECK(n && n->type == DataType::Object && n->ObjSize() == 1, "fixmap");
     auto* val = n->ObjFind("a");
     CHECK(val && val->type == DataType::Int && val->int_val == 1, "fixmap value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_map() {
     uint8_t data[] = {0x80};
     auto* n = MsgPackParse(data, 1);
     CHECK(n && n->type == DataType::Object && n->ObjSize() == 0, "empty map");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_int_key_map() {
@@ -228,21 +228,21 @@ static void test_int_key_map() {
         CHECK(val && val->type == DataType::String && val->str_val == "value",
               "int key map value");
     }
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_truncated() {
     uint8_t data[] = {0xcd, 0x01}; // uint16 needs 2 more bytes, only 1
     auto* n = MsgPackParse(data, 2);
     CHECK(n == nullptr, "truncated data");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_extra_bytes() {
     uint8_t data[] = {0xc0, 0xc0}; // two nils — should reject
     auto* n = MsgPackParse(data, 2);
     CHECK(n == nullptr, "extra bytes rejected");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_input() {
@@ -259,8 +259,8 @@ static void test_roundtrip_null() {
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->Equals(n), "roundtrip null");
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_bool() {
@@ -272,8 +272,8 @@ static void test_roundtrip_bool() {
     auto* pf = MsgPackParse(bf.data(), bf.size());
     CHECK(pt && pt->Equals(t), "roundtrip true");
     CHECK(pf && pf->Equals(f), "roundtrip false");
-    DataNode::Destroy(t); DataNode::Destroy(f);
-    DataNode::Destroy(pt); DataNode::Destroy(pf);
+    DataNode::Decref(t); DataNode::Decref(f);
+    DataNode::Decref(pt); DataNode::Decref(pf);
 }
 
 static void test_roundtrip_ints() {
@@ -287,8 +287,8 @@ static void test_roundtrip_ints() {
         char name[64];
         snprintf(name, sizeof(name), "roundtrip int %lld", (long long)v);
         CHECK(parsed && parsed->type == DataType::Int && parsed->int_val == v, name);
-        DataNode::Destroy(n);
-        DataNode::Destroy(parsed);
+        DataNode::Decref(n);
+        DataNode::Decref(parsed);
     }
 }
 
@@ -301,8 +301,8 @@ static void test_roundtrip_float() {
         char name[64];
         snprintf(name, sizeof(name), "roundtrip float %g", v);
         CHECK(parsed && parsed->type == DataType::Float && parsed->float_val == v, name);
-        DataNode::Destroy(n);
-        DataNode::Destroy(parsed);
+        DataNode::Decref(n);
+        DataNode::Decref(parsed);
     }
 }
 
@@ -315,8 +315,8 @@ static void test_roundtrip_string() {
         char name[128];
         snprintf(name, sizeof(name), "roundtrip string \"%s\"", s);
         CHECK(parsed && parsed->type == DataType::String && parsed->str_val == s, name);
-        DataNode::Destroy(n);
-        DataNode::Destroy(parsed);
+        DataNode::Decref(n);
+        DataNode::Decref(parsed);
     }
 }
 
@@ -327,8 +327,8 @@ static void test_roundtrip_binary() {
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->type == DataType::Binary && parsed->bin.size() == 5 &&
           memcmp(parsed->bin.data(), bin_data, 5) == 0, "roundtrip binary");
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_empty_binary() {
@@ -336,8 +336,8 @@ static void test_roundtrip_empty_binary() {
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->type == DataType::Binary && parsed->bin.empty(), "roundtrip empty binary");
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_array() {
@@ -354,8 +354,8 @@ static void test_roundtrip_array() {
     CHECK(parsed && parsed->arr[1]->str_val == "two", "roundtrip array[1]");
     CHECK(parsed && parsed->arr[2]->bool_val == true, "roundtrip array[2]");
     CHECK(parsed && parsed->arr[3]->type == DataType::Null, "roundtrip array[3]");
-    DataNode::Destroy(arr);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(arr);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_object() {
@@ -373,8 +373,8 @@ static void test_roundtrip_object() {
     CHECK(name && name->str_val == "test", "roundtrip object name");
     CHECK(count && count->int_val == 42, "roundtrip object count");
     CHECK(active && active->bool_val == true, "roundtrip object active");
-    DataNode::Destroy(obj);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(obj);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_nested() {
@@ -390,8 +390,8 @@ static void test_roundtrip_nested() {
     CHECK(parsed && parsed->type == DataType::Object, "roundtrip nested type");
     auto* items = parsed ? parsed->ObjFind("items") : nullptr;
     CHECK(items && items->type == DataType::Array && items->arr.size() == 2, "roundtrip nested items");
-    DataNode::Destroy(obj);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(obj);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_large_array() {
@@ -409,8 +409,8 @@ static void test_roundtrip_large_array() {
         }
     }
     CHECK(all_ok, "roundtrip large array values");
-    DataNode::Destroy(arr);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(arr);
+    DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_long_string() {
@@ -419,8 +419,8 @@ static void test_roundtrip_long_string() {
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->type == DataType::String && parsed->str_val == s, "roundtrip long string");
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 // Compact encoding tests
@@ -430,28 +430,28 @@ static void test_compact_encoding() {
         auto* n = DataNode::MakeInt(42);
         auto buf = MsgPackSerialize(*n);
         CHECK(buf.size() == 1 && buf[0] == 42, "compact fixint");
-        DataNode::Destroy(n);
+        DataNode::Decref(n);
     }
     // Small negative int should be 1 byte (neg fixint)
     {
         auto* n = DataNode::MakeInt(-1);
         auto buf = MsgPackSerialize(*n);
         CHECK(buf.size() == 1 && buf[0] == 0xff, "compact neg fixint");
-        DataNode::Destroy(n);
+        DataNode::Decref(n);
     }
     // Short string should use fixstr
     {
         auto* n = DataNode::MakeString("hi");
         auto buf = MsgPackSerialize(*n);
         CHECK(buf.size() == 3 && buf[0] == 0xa2, "compact fixstr");
-        DataNode::Destroy(n);
+        DataNode::Decref(n);
     }
     // 128 should use uint8 (2 bytes)
     {
         auto* n = DataNode::MakeInt(128);
         auto buf = MsgPackSerialize(*n);
         CHECK(buf.size() == 2 && buf[0] == 0xcc, "compact uint8 for 128");
-        DataNode::Destroy(n);
+        DataNode::Decref(n);
     }
 }
 
@@ -460,7 +460,7 @@ static void test_compact_encoding() {
 static void test_intmap_create() {
     auto* n = DataNode::MakeIntMap();
     CHECK(n && n->type == DataType::IntMap && n->IntMapSize() == 0, "intmap create empty");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_insert_find() {
@@ -480,7 +480,7 @@ static void test_intmap_insert_find() {
     auto* v0 = n->IntMapFind(0);
     CHECK(v0 && v0->type == DataType::Null, "intmap find 0");
     CHECK(n->IntMapFind(999) == nullptr, "intmap find missing");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_overwrite() {
@@ -490,7 +490,7 @@ static void test_intmap_overwrite() {
     CHECK(n->IntMapSize() == 1, "intmap overwrite size");
     auto* v = n->IntMapFind(1);
     CHECK(v && v->int_val == 200, "intmap overwrite value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_erase() {
@@ -502,7 +502,7 @@ static void test_intmap_erase() {
     CHECK(n->IntMapSize() == 1, "intmap erase size");
     CHECK(n->IntMapFind(1) == nullptr, "intmap erase removed");
     CHECK(n->IntMapFind(2) != nullptr, "intmap erase other intact");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_contains() {
@@ -511,7 +511,7 @@ static void test_intmap_contains() {
     n->IntMapInsert(1, DataNode::MakeInt(100));
     CHECK(n->IntMapContains(1), "intmap contains after insert");
     CHECK(!n->IntMapContains(2), "intmap contains other");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_clear() {
@@ -524,7 +524,7 @@ static void test_intmap_clear() {
     // still usable
     n->IntMapInsert(3, DataNode::MakeInt(300));
     CHECK(n->IntMapSize() == 1, "intmap usable after clear");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_merge() {
@@ -546,8 +546,8 @@ static void test_intmap_merge() {
     a->IntMapMerge(b, true);
     CHECK(a->IntMapFind(2)->int_val == 999, "intmap merge overwrite");
 
-    DataNode::Destroy(a);
-    DataNode::Destroy(b);
+    DataNode::Decref(a);
+    DataNode::Decref(b);
 }
 
 static void test_intmap_deepcopy() {
@@ -570,8 +570,8 @@ static void test_intmap_deepcopy() {
     n->IntMapInsert(1, DataNode::MakeInt(999));
     CHECK(copy->IntMapFind(1)->int_val == 100, "intmap deepcopy independent");
 
-    DataNode::Destroy(n);
-    DataNode::Destroy(copy);
+    DataNode::Decref(n);
+    DataNode::Decref(copy);
 }
 
 static void test_intmap_equals() {
@@ -599,11 +599,11 @@ static void test_intmap_equals() {
     auto* obj = DataNode::MakeObject();
     CHECK(!a->Equals(obj), "intmap != object");
 
-    DataNode::Destroy(a);
-    DataNode::Destroy(b);
-    DataNode::Destroy(c);
-    DataNode::Destroy(d);
-    DataNode::Destroy(obj);
+    DataNode::Decref(a);
+    DataNode::Decref(b);
+    DataNode::Decref(c);
+    DataNode::Decref(d);
+    DataNode::Decref(obj);
 }
 
 static void test_intmap_estimate_bytes() {
@@ -617,8 +617,8 @@ static void test_intmap_estimate_bytes() {
     size_t filled_size = filled->EstimateBytes();
     CHECK(filled_size > empty_size, "intmap estimate bytes filled > empty");
 
-    DataNode::Destroy(empty);
-    DataNode::Destroy(filled);
+    DataNode::Decref(empty);
+    DataNode::Decref(filled);
 }
 
 static void test_intmap_json_serialize() {
@@ -626,7 +626,7 @@ static void test_intmap_json_serialize() {
     n->IntMapInsert(1, DataNode::MakeInt(42));
     auto json = DataSerializeJson(*n);
     CHECK(json == "null", "intmap json serialize is null");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_msgpack_roundtrip() {
@@ -649,8 +649,8 @@ static void test_intmap_msgpack_roundtrip() {
     auto* vm1 = parsed->IntMapFind(-1);
     CHECK(vm1 && vm1->type == DataType::Bool && vm1->bool_val == true, "intmap msgpack roundtrip val -1");
 
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_intmap_msgpack_empty_roundtrip() {
@@ -663,8 +663,8 @@ static void test_intmap_msgpack_empty_roundtrip() {
     CHECK(parsed && parsed->type == DataType::Object, "intmap empty msgpack → Object");
     CHECK(parsed->ObjSize() == 0, "intmap empty msgpack size 0");
 
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_intmap_msgpack_nested() {
@@ -682,8 +682,8 @@ static void test_intmap_msgpack_nested() {
     CHECK(child && child->type == DataType::IntMap, "intmap nested parse inner type");
     CHECK(child->IntMapFind(10)->int_val == 100, "intmap nested parse inner val");
 
-    DataNode::Destroy(obj);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(obj);
+    DataNode::Decref(parsed);
 }
 
 static void test_intmap_msgpack_mixed_keys_fail() {
@@ -697,7 +697,7 @@ static void test_intmap_msgpack_mixed_keys_fail() {
     uint8_t data2[] = {0x82, 0x01, 0x64, 0xa1, 0x6b, 0xcc, 0xc8};
     auto* n = MsgPackParse(data2, sizeof(data2));
     CHECK(n == nullptr, "msgpack mixed key types rejected");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_intmap_as_value() {
@@ -713,8 +713,8 @@ static void test_intmap_as_value() {
     CHECK(parsed->arr[0]->type == DataType::IntMap, "intmap in array type");
     CHECK(parsed->arr[0]->IntMapFind(1)->int_val == 42, "intmap in array value");
 
-    DataNode::Destroy(arr);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(arr);
+    DataNode::Decref(parsed);
 }
 
 static void test_intmap_large_keys() {
@@ -739,8 +739,8 @@ static void test_intmap_large_keys() {
     CHECK(parsed->IntMapFind(INT64_MAX)->str_val == "max", "intmap large keys roundtrip max");
     CHECK(parsed->IntMapFind(INT64_MIN)->str_val == "min", "intmap large keys roundtrip min");
 
-    DataNode::Destroy(n);
-    DataNode::Destroy(parsed);
+    DataNode::Decref(n);
+    DataNode::Decref(parsed);
 }
 
 static void test_intmap_wrong_type_guards() {
@@ -755,7 +755,7 @@ static void test_intmap_wrong_type_guards() {
     obj->IntMapInsert(1, DataNode::MakeInt(42));
     CHECK(obj->IntMapSize() == 0, "IntMapInsert on object is no-op");
 
-    DataNode::Destroy(obj);
+    DataNode::Decref(obj);
 }
 
 int main() {

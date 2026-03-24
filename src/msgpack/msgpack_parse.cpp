@@ -89,14 +89,14 @@ static DataNode* read_map(Reader& r, size_t count, int depth) {
         for (size_t i = 0; i < count; i++) {
             DataNode* key_node = read_node(r, depth + 1);
             if (!key_node || key_node->type != DataType::Int) {
-                DataNode::Destroy(key_node);
-                DataNode::Destroy(node);
+                DataNode::Decref(key_node);
+                DataNode::Decref(node);
                 return nullptr;
             }
             int64_t key = key_node->int_val;
-            DataNode::Destroy(key_node);
+            DataNode::Decref(key_node);
             DataNode* val = read_node(r, depth + 1);
-            if (!val) { DataNode::Destroy(node); return nullptr; }
+            if (!val) { DataNode::Decref(node); return nullptr; }
             node->IntMapInsert(key, val);
         }
         return node;
@@ -107,14 +107,14 @@ static DataNode* read_map(Reader& r, size_t count, int depth) {
     for (size_t i = 0; i < count; i++) {
         DataNode* key_node = read_node(r, depth + 1);
         if (!key_node || key_node->type != DataType::String) {
-            DataNode::Destroy(key_node);
-            DataNode::Destroy(obj);
+            DataNode::Decref(key_node);
+            DataNode::Decref(obj);
             return nullptr;
         }
         std::string key = key_node->str_val;
-        DataNode::Destroy(key_node);
+        DataNode::Decref(key_node);
         DataNode* val = read_node(r, depth + 1);
-        if (!val) { DataNode::Destroy(obj); return nullptr; }
+        if (!val) { DataNode::Decref(obj); return nullptr; }
         obj->ObjInsert(key, val);
     }
     return obj;
@@ -127,7 +127,7 @@ static DataNode* read_array(Reader& r, size_t count, int depth) {
     arr->arr.reserve(count);
     for (size_t i = 0; i < count; i++) {
         DataNode* elem = read_node(r, depth + 1);
-        if (!elem) { DataNode::Destroy(arr); return nullptr; }
+        if (!elem) { DataNode::Decref(arr); return nullptr; }
         arr->arr.push_back(elem);
     }
     return arr;
@@ -318,7 +318,7 @@ DataNode* MsgPackParse(const uint8_t* data, size_t len) {
 
     // If we didn't consume all input, it's malformed
     if (result && r.pos != len) {
-        DataNode::Destroy(result);
+        DataNode::Decref(result);
         return nullptr;
     }
 

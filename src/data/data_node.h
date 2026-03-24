@@ -1,6 +1,7 @@
 #ifndef ASYNC2_DATA_NODE_H
 #define ASYNC2_DATA_NODE_H
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -20,9 +21,7 @@ enum class DataType {
 
 struct DataNode {
     DataType type;
-    static constexpr uint32_t kMaxRefcount = 0x7FFFFFFFU; // 2^31-1
-    uint32_t refcount : 31;  // child handle count (non-atomic, game-thread only)
-    uint32_t orphaned : 1;   // true if parent destroyed but refcount > 0
+    std::atomic<uint32_t> refcount;  // per-node lifetime refcount (atomic for cross-thread Decref)
 
     // Tagged union: only the member matching `type` is active.
     union {
@@ -36,8 +35,8 @@ struct DataNode {
         std::vector<uint8_t> bin;
     };
 
-    DataNode() : type(DataType::Null), refcount(0), orphaned(0), int_val(0) {}
-    ~DataNode() {} // no-op — caller must use Destroy()
+    DataNode() : type(DataType::Null), refcount(1), int_val(0) {}
+    ~DataNode() {} // no-op — caller must use Decref()
 
     DataNode(const DataNode&) = delete;
     DataNode& operator=(const DataNode&) = delete;
@@ -55,8 +54,11 @@ struct DataNode {
     static DataNode* MakeBinary(const uint8_t* data, size_t len);
     static DataNode* MakeBinary(std::vector<uint8_t>&& data);
 
-    // Recursively destroy node and all children, return memory to pool.
-    static void Destroy(DataNode* node);
+    // Increment reference count (caller takes a new reference).
+    void Incref() { refcount.fetch_add(1, std::memory_order_relaxed); }
+
+    // Decrement reference count. If it reaches zero, recursively Decref children and free.
+    static void Decref(DataNode* node);
 
     DataNode* DeepCopy() const;
     static DataNode* StealFrom(DataNode* src);

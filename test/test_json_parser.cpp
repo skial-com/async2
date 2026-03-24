@@ -125,7 +125,7 @@ static void test_parsing(const std::string& data_dir, TestResult& result) {
         } else {
             result.skipped++;
         }
-        DataNode::Destroy(parsed);
+        DataNode::Decref(parsed);
     }
 }
 
@@ -169,7 +169,7 @@ static void test_checker(const std::string& data_dir, TestResult& result) {
                 result.failures.push_back("CHECKER PASS (expected reject): " + name);
             }
         }
-        DataNode::Destroy(parsed);
+        DataNode::Decref(parsed);
     }
 }
 
@@ -197,7 +197,7 @@ static void test_roundtrip(const std::string& data_dir, TestResult& result) {
         std::string ser1 = DataSerializeJson(*parsed1);
         auto* parsed2 = DataParseJson(ser1.data(), ser1.size());
         if (!parsed2) {
-            DataNode::Destroy(parsed1);
+            DataNode::Decref(parsed1);
             result.failed++;
             result.failures.push_back("ROUNDTRIP PARSE2 FAIL: " + name);
             continue;
@@ -212,8 +212,8 @@ static void test_roundtrip(const std::string& data_dir, TestResult& result) {
                                       "\n  ser1: " + ser1.substr(0, 200) +
                                       "\n  ser2: " + ser2.substr(0, 200));
         }
-        DataNode::Destroy(parsed1);
-        DataNode::Destroy(parsed2);
+        DataNode::Decref(parsed1);
+        DataNode::Decref(parsed2);
     }
 }
 
@@ -255,7 +255,7 @@ static void test_roundtrip_exact(const std::string& data_dir, TestResult& result
         // Parse the original content again for structural comparison
         auto* expected = DataParseJson(content.data(), content.size());
         if (!expected) {
-            DataNode::Destroy(parsed);
+            DataNode::Decref(parsed);
             result.skipped++;
             continue;
         }
@@ -271,9 +271,9 @@ static void test_roundtrip_exact(const std::string& data_dir, TestResult& result
                                       "\n  expected: " + content.substr(0, 200) +
                                       "\n  got:      " + ser.substr(0, 200));
         }
-        DataNode::Destroy(parsed);
-        DataNode::Destroy(expected);
-        DataNode::Destroy(reparsed);
+        DataNode::Decref(parsed);
+        DataNode::Decref(expected);
+        DataNode::Decref(reparsed);
     }
 }
 
@@ -284,84 +284,84 @@ static void test_api(TestResult& result) {
         auto* r = DataParseJson("null", 4);
         if (r && r->type == DataType::Null) result.passed++;
         else { result.failed++; result.failures.push_back("API: null parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test true
     {
         auto* r = DataParseJson("true", 4);
         if (r && r->type == DataType::Bool && r->bool_val == true) result.passed++;
         else { result.failed++; result.failures.push_back("API: true parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test false
     {
         auto* r = DataParseJson("false", 5);
         if (r && r->type == DataType::Bool && r->bool_val == false) result.passed++;
         else { result.failed++; result.failures.push_back("API: false parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test integer
     {
         auto* r = DataParseJson("42", 2);
         if (r && r->type == DataType::Int && r->int_val == 42) result.passed++;
         else { result.failed++; result.failures.push_back("API: integer parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test negative integer
     {
         auto* r = DataParseJson("-7", 2);
         if (r && r->type == DataType::Int && r->int_val == -7) result.passed++;
         else { result.failed++; result.failures.push_back("API: negative integer parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test float
     {
         auto* r = DataParseJson("3.14", 4);
         if (r && r->type == DataType::Float && r->float_val > 3.13 && r->float_val < 3.15) result.passed++;
         else { result.failed++; result.failures.push_back("API: float parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test string
     {
         auto* r = DataParseJson("\"hello\"", 7);
         if (r && r->type == DataType::String && r->str_val == "hello") result.passed++;
         else { result.failed++; result.failures.push_back("API: string parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test empty object
     {
         auto* r = DataParseJson("{}", 2);
         if (r && r->type == DataType::Object && r->ObjSize() == 0) result.passed++;
         else { result.failed++; result.failures.push_back("API: empty object"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test empty array
     {
         auto* r = DataParseJson("[]", 2);
         if (r && r->type == DataType::Array && r->arr.empty()) result.passed++;
         else { result.failed++; result.failures.push_back("API: empty array"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test string escapes
     {
         auto* r = DataParseJson("\"\\n\\t\\r\\\\\\\"\"", 12);
         if (r && r->type == DataType::String && r->str_val == "\n\t\r\\\"") result.passed++;
         else { result.failed++; result.failures.push_back("API: string escapes"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test unicode escape
     {
         auto* r = DataParseJson("\"\\u0041\"", 8);
         if (r && r->type == DataType::String && r->str_val == "A") result.passed++;
         else { result.failed++; result.failures.push_back("API: unicode escape"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test surrogate pair
     {
         auto* r = DataParseJson("\"\\uD834\\uDD1E\"", 14);
         if (r && r->type == DataType::String && r->str_val == "\xF0\x9D\x84\x9E") result.passed++;
         else { result.failed++; result.failures.push_back("API: surrogate pair"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test nested object
     {
@@ -375,7 +375,7 @@ static void test_api(TestResult& result) {
                 else { result.failed++; result.failures.push_back("API: nested object inner"); }
             } else { result.failed++; result.failures.push_back("API: nested object outer"); }
         } else { result.failed++; result.failures.push_back("API: nested object parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test array with mixed types
     {
@@ -389,7 +389,7 @@ static void test_api(TestResult& result) {
             if (ok) result.passed++;
             else { result.failed++; result.failures.push_back("API: mixed array elements"); }
         } else { result.failed++; result.failures.push_back("API: mixed array parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test DeepCopy
     {
@@ -400,9 +400,9 @@ static void test_api(TestResult& result) {
             r->ObjFind("x")->arr.push_back(DataNode::MakeInt(3));
             if (copy->ObjFind("x")->arr.size() == 2) result.passed++;
             else { result.failed++; result.failures.push_back("API: deep copy independence"); }
-            DataNode::Destroy(copy);
+            DataNode::Decref(copy);
         } else { result.failed++; result.failures.push_back("API: deep copy parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test serialize roundtrip
     {
@@ -415,9 +415,9 @@ static void test_api(TestResult& result) {
                 if (json_equal(r, r2)) result.passed++;
                 else { result.failed++; result.failures.push_back("API: serialize roundtrip mismatch"); }
             } else { result.failed++; result.failures.push_back("API: serialize roundtrip reparse"); }
-            DataNode::Destroy(r2);
+            DataNode::Decref(r2);
         } else { result.failed++; result.failures.push_back("API: serialize roundtrip parse"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test rejection of invalid JSON
     {
@@ -434,8 +434,8 @@ static void test_api(TestResult& result) {
         if (r3) result.failures.push_back("API: should reject trailing comma");
         if (r5) result.failures.push_back("API: should reject truncated literal");
         if (r6) result.failures.push_back("API: should reject unterminated string");
-        DataNode::Destroy(r1); DataNode::Destroy(r2); DataNode::Destroy(r3);
-        DataNode::Destroy(r5); DataNode::Destroy(r6);
+        DataNode::Decref(r1); DataNode::Decref(r2); DataNode::Decref(r3);
+        DataNode::Decref(r5); DataNode::Decref(r6);
     }
     // Note: simdjson ondemand is lenient on some invalid object syntax
     // (e.g. {"a":} parses as {} with missing fields silently skipped).
@@ -445,7 +445,7 @@ static void test_api(TestResult& result) {
         auto* r = DataParseJson("01", 2);
         if (!r) result.passed++;
         else { result.failed++; result.failures.push_back("API: should reject leading zero"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test depth limit (simdjson default max depth is 1024)
     {
@@ -455,7 +455,7 @@ static void test_api(TestResult& result) {
         auto* r = DataParseJson(deep.data(), deep.size());
         if (!r) result.passed++;
         else { result.failed++; result.failures.push_back("API: should reject excessive depth"); }
-        DataNode::Destroy(r);
+        DataNode::Decref(r);
     }
     // Test factory methods + serialize
     {
@@ -471,8 +471,8 @@ static void test_api(TestResult& result) {
         auto* expected_node = DataParseJson(expected, strlen(expected));
         if (expected_node && json_equal(obj, expected_node)) result.passed++;
         else { std::string ser = DataSerializeJson(*obj); result.failed++; result.failures.push_back("API: factory + serialize: " + ser); }
-        DataNode::Destroy(expected_node);
-        DataNode::Destroy(obj);
+        DataNode::Decref(expected_node);
+        DataNode::Decref(obj);
     }
 }
 
@@ -483,7 +483,7 @@ static void test_iterator(TestResult& result) {
         auto* node = DataParseJson("{\"a\":1,\"b\":2,\"c\":3}", 19);
         DataHandle handle(node);
         std::map<std::string, int64_t> found;
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         while (iter->Next()) {
             std::string key = iter->ObjectKey();
             auto* val = node->ObjFind(key);
@@ -500,7 +500,7 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("{}", 2);
         DataHandle handle(node);
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         bool has = iter->Next();
         delete iter;
         if (!has) result.passed++;
@@ -511,7 +511,7 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("{\"only\":true}", 13);
         DataHandle handle(node);
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         bool first = iter->Next();
         std::string key = iter->ObjectKey();
         auto* val = node->ObjFind(key);
@@ -526,12 +526,12 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("{\"x\":10,\"y\":20}", 15);
         DataHandle handle(node);
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         iter->Next(); // consume one
         delete iter;
 
         // New iterator starts from beginning
-        iter = DataIterator::CreateObject(handle.root, handle.node);
+        iter = DataIterator::CreateObject(handle.node);
         int count = 0;
         while (iter->Next()) count++;
         delete iter;
@@ -543,7 +543,7 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2,3]", 7);
         DataHandle handle(node);
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         if (iter == nullptr) result.passed++;
         else { delete iter; result.failed++; result.failures.push_back("Iterator: non-object"); }
     }
@@ -553,7 +553,7 @@ static void test_iterator(TestResult& result) {
         const char* json = "{\"obj\":{\"inner\":1},\"arr\":[1,2],\"val\":\"str\"}";
         auto* node = DataParseJson(json, strlen(json));
         DataHandle handle(node);
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         int count = 0;
         while (iter->Next()) count++;
         delete iter;
@@ -567,7 +567,7 @@ static void test_iterator(TestResult& result) {
         auto* node = DataParseJson(json, strlen(json));
         DataHandle handle(node);
         std::map<std::string, DataType> types;
-        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        auto* iter = DataIterator::CreateObject(handle.node);
         while (iter->Next()) {
             std::string key = iter->ObjectKey();
             auto* val = node->ObjFind(key);
@@ -595,7 +595,7 @@ static void test_utilities(TestResult& result) {
         bool others = node->ObjContains("a") && node->ObjContains("c");
         if (removed && gone && others && node->ObjSize() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: RemoveKey basic"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // RemoveKey nonexistent
     {
@@ -603,7 +603,7 @@ static void test_utilities(TestResult& result) {
         bool removed = node->ObjErase("nope");
         if (!removed && node->ObjSize() == 1) result.passed++;
         else { result.failed++; result.failures.push_back("Util: RemoveKey nonexistent"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
 
     // --- ObjectClear ---
@@ -612,7 +612,7 @@ static void test_utilities(TestResult& result) {
         node->ObjClear();
         if (node->ObjSize() == 0 && node->type == DataType::Object) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectClear"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // ObjectClear already empty
     {
@@ -620,7 +620,7 @@ static void test_utilities(TestResult& result) {
         node->ObjClear();
         if (node->ObjSize() == 0) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectClear empty"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
 
     // --- ObjectMerge ---
@@ -635,8 +635,8 @@ static void test_utilities(TestResult& result) {
         if (x && x->int_val == 1 && y && y->int_val == 99 && z && z->int_val == 3 && a->ObjSize() == 3)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectMerge overwrite"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Merge without overwrite
     {
@@ -648,8 +648,8 @@ static void test_utilities(TestResult& result) {
         if (y && y->int_val == 2 && z && z->int_val == 3 && a->ObjSize() == 3)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectMerge no overwrite"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Merge into empty
     {
@@ -659,8 +659,8 @@ static void test_utilities(TestResult& result) {
         auto* k = a->ObjFind("k");
         if (k && k->type == DataType::String && k->str_val == "v") result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectMerge into empty"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Merge is deep copy (mutating source doesn't affect target)
     {
@@ -674,8 +674,8 @@ static void test_utilities(TestResult& result) {
         auto* target_obj = a->ObjFind("obj");
         if (target_obj && target_obj->ObjContains("inner")) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectMerge deep copy"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
 
     // --- ArrayRemove ---
@@ -688,7 +688,7 @@ static void test_utilities(TestResult& result) {
             node->arr[2]->int_val == 40)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove middle"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // Remove first
     {
@@ -696,7 +696,7 @@ static void test_utilities(TestResult& result) {
         node->ArrRemove(0);
         if (node->arr.size() == 2 && node->arr[0]->int_val == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove first"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // Remove last
     {
@@ -704,7 +704,7 @@ static void test_utilities(TestResult& result) {
         node->ArrRemove(2);
         if (node->arr.size() == 2 && node->arr[1]->int_val == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove last"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // Remove out of bounds
     {
@@ -712,7 +712,7 @@ static void test_utilities(TestResult& result) {
         bool ok = node->ArrRemove(5);
         if (!ok && node->arr.size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove OOB"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
 
     // --- ArraySet ---
@@ -723,7 +723,7 @@ static void test_utilities(TestResult& result) {
             node->arr[0]->int_val == 1 && node->arr[2]->int_val == 3)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArraySet basic"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
     // ArraySet out of bounds (should not crash, destroys the value)
     {
@@ -731,7 +731,7 @@ static void test_utilities(TestResult& result) {
         node->ArrSet(5, DataNode::MakeInt(99));
         if (node->arr.size() == 1 && node->arr[0]->int_val == 1) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArraySet OOB"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
 
     // --- ArrayClear ---
@@ -740,7 +740,7 @@ static void test_utilities(TestResult& result) {
         node->ArrClear();
         if (node->arr.size() == 0 && node->type == DataType::Array) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayClear"); }
-        DataNode::Destroy(node);
+        DataNode::Decref(node);
     }
 
     // --- ArrayExtend ---
@@ -753,8 +753,8 @@ static void test_utilities(TestResult& result) {
             a->arr[2]->int_val == 3 && a->arr[3]->int_val == 4 && a->arr[4]->int_val == 5)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Extend empty array
     {
@@ -763,8 +763,8 @@ static void test_utilities(TestResult& result) {
         a->ArrExtend(b);
         if (a->arr.size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend into empty"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Extend with empty array
     {
@@ -773,8 +773,8 @@ static void test_utilities(TestResult& result) {
         a->ArrExtend(b);
         if (a->arr.size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend from empty"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
     // Extend is deep copy
     {
@@ -786,8 +786,8 @@ static void test_utilities(TestResult& result) {
         // Target should be unaffected
         if (a->arr.size() == 1 && a->arr[0]->arr.size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend deep copy"); }
-        DataNode::Destroy(a);
-        DataNode::Destroy(b);
+        DataNode::Decref(a);
+        DataNode::Decref(b);
     }
 }
 
@@ -816,12 +816,12 @@ static void test_transform(const std::string& data_dir, TestResult& result) {
                 result.failed++;
                 result.failures.push_back("TRANSFORM REPARSE FAIL: " + name);
             }
-            DataNode::Destroy(reparsed);
+            DataNode::Decref(reparsed);
         } else {
             // Some transform files may have content that our parser legitimately rejects
             result.skipped++;
         }
-        DataNode::Destroy(parsed);
+        DataNode::Decref(parsed);
     }
 }
 

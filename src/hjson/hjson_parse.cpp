@@ -636,20 +636,20 @@ static DataNode* read_object(Reader& r, int depth, bool braced = true) {
     r.skip_ws();
     while (r.pos < r.len && !(braced && r.data[r.pos] == '}')) {
         std::string key;
-        if (!read_key(r, key)) { DataNode::Destroy(obj); return nullptr; }
+        if (!read_key(r, key)) { DataNode::Decref(obj); return nullptr; }
         r.skip_ws();
-        if (r.peek() != ':') { DataNode::Destroy(obj); return nullptr; }
+        if (r.peek() != ':') { DataNode::Decref(obj); return nullptr; }
         r.pos++;
         r.skip_ws();
 
         DataNode* val = read_value(r, depth + 1);
-        if (!val) { DataNode::Destroy(obj); return nullptr; }
+        if (!val) { DataNode::Decref(obj); return nullptr; }
         obj->ObjInsert(key, val);
         r.skip_separator();
     }
 
     if (braced) {
-        if (r.pos >= r.len || r.data[r.pos] != '}') { DataNode::Destroy(obj); return nullptr; }
+        if (r.pos >= r.len || r.data[r.pos] != '}') { DataNode::Decref(obj); return nullptr; }
         r.pos++;
     }
     return obj;
@@ -661,12 +661,12 @@ static DataNode* read_array(Reader& r, int depth) {
     r.skip_ws();
     while (r.pos < r.len && r.data[r.pos] != ']') {
         DataNode* val = read_value(r, depth + 1);
-        if (!val) { DataNode::Destroy(arr); return nullptr; }
+        if (!val) { DataNode::Decref(arr); return nullptr; }
         arr->arr.push_back(val);
         r.skip_separator();
     }
 
-    if (r.pos >= r.len || r.data[r.pos] != ']') { DataNode::Destroy(arr); return nullptr; }
+    if (r.pos >= r.len || r.data[r.pos] != ']') { DataNode::Decref(arr); return nullptr; }
     r.pos++;
     return arr;
 }
@@ -718,7 +718,7 @@ DataNode* HjsonParse(const char* data, size_t len) {
         DataNode* result = read_value(r, 0);
         if (!result) return nullptr;
         r.skip_ws();
-        if (r.pos < r.len) { DataNode::Destroy(result); return nullptr; }
+        if (r.pos < r.len) { DataNode::Decref(result); return nullptr; }
         return result;
     }
 
@@ -729,7 +729,7 @@ DataNode* HjsonParse(const char* data, size_t len) {
         if (result) {
             r.skip_ws();
             if (r.pos >= r.len) return result;
-            DataNode::Destroy(result);
+            DataNode::Decref(result);
         }
         // Fall back to single value
         r.pos = 0;
@@ -738,7 +738,7 @@ DataNode* HjsonParse(const char* data, size_t len) {
         if (val) {
             r.skip_ws();
             if (r.pos >= r.len) return val;
-            DataNode::Destroy(val);
+            DataNode::Decref(val);
         }
         return nullptr;
     }
@@ -747,6 +747,6 @@ DataNode* HjsonParse(const char* data, size_t len) {
     DataNode* result = read_value(r, 0);
     if (!result) return nullptr;
     r.skip_ws();
-    if (r.pos < r.len) { DataNode::Destroy(result); return nullptr; }
+    if (r.pos < r.len) { DataNode::Decref(result); return nullptr; }
     return result;
 }

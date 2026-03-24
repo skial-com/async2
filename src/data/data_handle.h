@@ -2,7 +2,6 @@
 #define ASYNC2_DATA_HANDLE_H
 
 #include <string>
-#include <memory>
 #include "data_node.h"
 
 enum Async2DataType {
@@ -19,14 +18,10 @@ enum Async2DataType {
 
 class DataHandle {
 public:
-    std::shared_ptr<DataNode> root; // keeps entire tree alive
-    DataNode* node;                 // current position (root or descendant)
-    bool owns_refcount_ = false;    // true for child handles that incremented node->refcount
+    DataNode* node;                 // the node this handle accesses (refcount managed externally)
 
-    // Root handle — takes ownership
+    // Takes ownership — caller's refcount transfers to this handle.
     explicit DataHandle(DataNode* owned);
-    // Child handle — borrows from parent's tree
-    DataHandle(std::shared_ptr<DataNode> root, DataNode* node);
     ~DataHandle();
 
     static DataHandle* Parse(const char* data, size_t len);

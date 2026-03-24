@@ -1497,7 +1497,7 @@ void EventLoop::ProcessWsSend(WsOp* op) {
             auto buf = MsgPackSerialize(*op->body_node);
             op->data = std::move(buf);
         }
-        DataNode::Destroy(op->body_node);
+        DataNode::Decref(op->body_node);
         op->body_node = nullptr;
     }
 

@@ -1,25 +1,21 @@
 #include "data_iterator.h"
 
-DataIterator* DataIterator::CreateObject(std::shared_ptr<DataNode> root, DataNode* node) {
+DataIterator* DataIterator::CreateObject(DataNode* node) {
     if (!node || node->type != DataType::Object) return nullptr;
-    if (node->refcount >= DataNode::kMaxRefcount) return nullptr;
     auto* it = new DataIterator();
     it->type_ = IteratorType::Object;
-    it->root_ = std::move(root);
     it->node_ = node;
-    node->refcount++;
+    node->Incref();
     new (&it->obj_iter_) decltype(it->obj_iter_)(node->obj.begin());
     return it;
 }
 
-DataIterator* DataIterator::CreateIntMap(std::shared_ptr<DataNode> root, DataNode* node) {
+DataIterator* DataIterator::CreateIntMap(DataNode* node) {
     if (!node || node->type != DataType::IntMap) return nullptr;
-    if (node->refcount >= DataNode::kMaxRefcount) return nullptr;
     auto* it = new DataIterator();
     it->type_ = IteratorType::IntMap;
-    it->root_ = std::move(root);
     it->node_ = node;
-    node->refcount++;
+    node->Incref();
     new (&it->intmap_iter_) decltype(it->intmap_iter_)(node->intmap.begin());
     return it;
 }
@@ -30,10 +26,7 @@ DataIterator::~DataIterator() {
     else
         intmap_iter_.~IntMapIterType();
 
-    node_->refcount--;
-    if (node_->refcount == 0 && node_->orphaned) {
-        DataNode::Destroy(node_);
-    }
+    DataNode::Decref(node_);
 }
 
 bool DataIterator::Next() {

@@ -42,7 +42,7 @@ struct SocketEvent {
     funcid_t error_callback = 0;  // for parse failure: fire onError instead of onMessage
 
     ~SocketEvent() {
-        if (parsed_node) DataNode::Destroy(parsed_node);
+        if (parsed_node) DataNode::Decref(parsed_node);
     }
 };
 

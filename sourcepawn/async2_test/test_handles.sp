@@ -77,16 +77,14 @@ void Test_SetObject_MovesChild() {
 
     parent.SetObject("data", child);
 
-    // Child is now empty
-    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child is null after SetObject");
+    // child handle consumed by SetObject (Close is safe no-op)
+    child.Close();
 
     // Parent has the data
     Json ref = parent.GetObject("data");
     AssertEq(ref.GetInt("x"), 42, "Parent has child's data after SetObject");
     ref.Close();
 
-    // Child close is safe
-    child.Close();
     parent.Close();
 }
 
@@ -112,7 +110,7 @@ void Test_ArrayAppendObject_MovesChild() {
 
     arr.ArrayAppendObject(child);
 
-    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child is null after ArrayAppendObject");
+    // child handle consumed by ArrayAppendObject (Close is safe no-op)
     child.Close();
 
     Json ref = arr.ArrayGetObject(0);
@@ -180,8 +178,8 @@ void Test_SetObject_MultiInsertWithCopy() {
     parent.Close();
 }
 
-void Test_SetObject_ChildHandleSteal() {
-    // Stealing from a child handle (GetObject) hollows out that node in the source tree
+void Test_SetObject_ChildHandleShare() {
+    // SetObject with a child handle shares the node between both trees
     Json src = Json.CreateObject();
     Json inner = Json.CreateObject();
     inner.SetInt("x", 1);
@@ -197,12 +195,14 @@ void Test_SetObject_ChildHandleSteal() {
 
     // dst has the data
     Json dst_ref = dst.GetObject("stolen");
-    AssertEq(dst_ref.GetInt("x"), 1, "Stolen child handle data in dst");
+    AssertEq(dst_ref.GetInt("x"), 1, "Shared child handle data in dst");
     dst_ref.Close();
 
-    // src["inner"] is now null (hollowed out)
+    // src["inner"] still valid — node is shared between both trees
     Json src_ref = src.GetObject("inner");
-    Assert(view_as<int>(src_ref) == 0, "Source node is null after child handle steal");
+    Assert(view_as<int>(src_ref) != 0, "Source node still valid after child handle share");
+    AssertEq(src_ref.GetInt("x"), 1, "Source still has shared data");
+    src_ref.Close();
 
     src.Close();
     dst.Close();
@@ -224,5 +224,5 @@ void RunHandleTests() {
     Test_ArrayAppendObject_DataAccessible();
     Test_SetObject_CopyPreservesOriginal();
     Test_SetObject_MultiInsertWithCopy();
-    Test_SetObject_ChildHandleSteal();
+    Test_SetObject_ChildHandleShare();
 }

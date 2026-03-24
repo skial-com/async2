@@ -2,7 +2,7 @@
 #include "data/data_node.h"
 
 WsOp::~WsOp() {
-    if (body_node) DataNode::Destroy(body_node);
+    if (body_node) DataNode::Decref(body_node);
 }
 
 WsConnection::WsConnection(IPluginContext* ctx, int ud)

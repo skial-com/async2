@@ -34,23 +34,28 @@ Custom all-purpose data structure for speed. No weaknesses in any spot unlike th
 
 | Benchmark | async2 | yyjson | simdjson | jansson |
 |---|--:|--:|--:|--:|
-| parse only | 50.2 us | 9.2 us | 940.7 ns | 273.7 us |
-| obj[10] random key access | 4.7 ns | 16.1 ns | N/A | 10.9 ns |
-| obj[50] random key access | 5.4 ns | 38.2 ns | N/A | 12.3 ns |
-| obj[1000] random key access | 9.9 ns | 596.6 ns | N/A | 14.7 ns |
-| arr[10] random index access | 0.3 ns | 0.7 ns | N/A | 1.5 ns |
-| arr[1000] random index access | 0.3 ns | 0.7 ns | N/A | 1.5 ns |
-| obj insert 10 keys | 28.6 ns | 4.1 ns | N/A | 28.3 ns |
-| obj insert 50 keys | 24.7 ns | 3.0 ns | N/A | 31.9 ns |
-| obj insert 1000 keys | 29.5 ns | 2.4 ns | N/A | 56.7 ns |
-| obj[10] random delete | 18.1 ns | 19.8 ns | N/A | 20.8 ns |
-| obj[50] random delete | 17.9 ns | 62.4 ns | N/A | 21.0 ns |
-| obj[1000] random delete | 26.2 ns | 912.6 ns | N/A | 25.3 ns |
-| arr append 1000 | 6.3 ns | 1.2 ns | N/A | 18.6 ns |
-| arr[10] random insert | 8.7 ns | 4.7 ns | N/A | 12.9 ns |
-| arr[1000] random insert | 16.5 ns | 169.2 ns | N/A | 32.1 ns |
-| arr[10] random delete | 7.6 ns | 7.5 ns | N/A | 11.4 ns |
-| arr[1000] random delete | 17.2 ns | 165.3 ns | N/A | 20.1 ns |
+| parse only | 53.9 us | 8.7 us | 864.7 ns | 250.9 us |
+| obj[10] random key access | 4.6 ns | 16.3 ns | N/A | 7.1 ns |
+| obj[50] random key access | 5.3 ns | 38.1 ns | N/A | 12.7 ns |
+| obj[1000] random key access | 9.7 ns | 653.5 ns | N/A | 14.4 ns |
+| arr[10] random index access | 0.2 ns | 0.7 ns | N/A | 1.5 ns |
+| arr[50] random index access | 0.2 ns | 0.7 ns | N/A | 1.5 ns |
+| arr[1000] random index access | 0.3 ns | 0.7 ns | N/A | 1.6 ns |
+| obj insert 10 keys | 29.2 ns | 4.0 ns | N/A | 28.8 ns |
+| obj insert 50 keys | 27.5 ns | 3.1 ns | N/A | 32.1 ns |
+| obj insert 1000 keys | 32.6 ns | 2.5 ns | N/A | 56.8 ns |
+| obj[10] random delete | 17.7 ns | 18.6 ns | N/A | 18.1 ns |
+| obj[50] random delete | 18.3 ns | 55.3 ns | N/A | 21.8 ns |
+| obj[1000] random delete | 26.2 ns | 853.2 ns | N/A | 25.1 ns |
+| arr append 10 | 9.5 ns | 2.4 ns | N/A | 10.8 ns |
+| arr append 50 | 7.3 ns | 1.8 ns | N/A | 10.3 ns |
+| arr append 1000 | 9.1 ns | 1.1 ns | N/A | 18.4 ns |
+| arr[10] random insert | 10.0 ns | 4.0 ns | N/A | 12.9 ns |
+| arr[50] random insert | 9.8 ns | 7.2 ns | N/A | 12.6 ns |
+| arr[1000] random insert | 19.3 ns | 165.7 ns | N/A | 36.2 ns |
+| arr[10] random delete | 8.5 ns | 7.9 ns | N/A | 11.4 ns |
+| arr[50] random delete | 8.4 ns | 10.6 ns | N/A | 11.6 ns |
+| arr[1000] random delete | 17.4 ns | 160.6 ns | N/A | 20.1 ns |
 
 Deep nested access without intermediate handles:
 

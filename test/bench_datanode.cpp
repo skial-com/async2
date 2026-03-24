@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
 
     // Parse
     printf("%-35s %12s\n", "parse",
-        fmt(bench(parse_ops, [&]{ auto* r = DataParseJson(data.data(), data.size()); DataNode::Destroy(r); }), buf, sizeof(buf)));
+        fmt(bench(parse_ops, [&]{ auto* r = DataParseJson(data.data(), data.size()); DataNode::Decref(r); }), buf, sizeof(buf)));
 
     // Serialize
     {
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
             fmt(bench(parse_ops, [&]{ auto s = DataSerializeJson(*root); }), buf, sizeof(buf)));
         printf("%-35s %12s\n", "serialize pretty",
             fmt(bench(parse_ops, [&]{ auto s = DataSerializeJson(*root, true); }), buf, sizeof(buf)));
-        DataNode::Destroy(root);
+        DataNode::Decref(root);
     }
 
     // Object key access
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
                 fmt(bench(ACCESS_OPS, [&]{ sink = obj->ObjFind(keys[idx++])->int_val; }), buf, sizeof(buf)));
             (void)sink;
         }
-        DataNode::Destroy(root);
+        DataNode::Decref(root);
     }
 
     // Array index access
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
                 fmt(bench(ACCESS_OPS, [&]{ sink = arr->arr[indices[idx++]]->int_val; }), buf, sizeof(buf)));
             (void)sink;
         }
-        DataNode::Destroy(root);
+        DataNode::Decref(root);
     }
 
     // Object insert
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
             fmt(bench(reps, [&]{
                 auto* obj = DataNode::MakeObject();
                 for (int i = 0; i < n; i++) obj->ObjInsert(keys[i], DataNode::MakeInt(i));
-                DataNode::Destroy(obj);
+                DataNode::Decref(obj);
             }) / n, buf, sizeof(buf)));
     }
 
@@ -153,7 +153,7 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < n; i++) obj->ObjErase(keys[shuffles[r][i]]);
                 auto e = Clock::now();
                 total_ns += (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count();
-                DataNode::Destroy(obj);
+                DataNode::Decref(obj);
             }
             printf("%-35s %12s\n", label, fmt(total_ns / (reps * n), buf, sizeof(buf)));
         }
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
             fmt(bench(reps, [&]{
                 auto* arr = DataNode::MakeArray();
                 for (int i = 0; i < n; i++) arr->arr.push_back(DataNode::MakeInt(i));
-                DataNode::Destroy(arr);
+                DataNode::Decref(arr);
             }) / n, buf, sizeof(buf)));
     }
 
@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
                 fmt(bench(reps, [&]{
                     auto* arr = DataNode::MakeArray();
                     for (int i = 0; i < n; i++) arr->arr.insert(arr->arr.begin() + positions[i], DataNode::MakeInt(i));
-                    DataNode::Destroy(arr);
+                    DataNode::Decref(arr);
                 }) / n, buf, sizeof(buf)));
         }
     }
@@ -209,12 +209,12 @@ int main(int argc, char** argv) {
                 for (int i = 0; i < n; i++) arr->arr.push_back(DataNode::MakeInt(i));
                 auto s = Clock::now();
                 for (int i = 0; i < n; i++) {
-                    DataNode::Destroy(arr->arr[indices[r][i]]);
+                    DataNode::Decref(arr->arr[indices[r][i]]);
                     arr->arr.erase(arr->arr.begin() + indices[r][i]);
                 }
                 auto e = Clock::now();
                 total_ns += (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count();
-                DataNode::Destroy(arr);
+                DataNode::Decref(arr);
             }
             printf("%-35s %12s\n", label, fmt(total_ns / (reps * n), buf, sizeof(buf)));
         }
@@ -224,8 +224,8 @@ int main(int argc, char** argv) {
     {
         auto* root = DataParseJson(data.data(), data.size());
         printf("%-35s %12s\n", "deep copy",
-            fmt(bench(parse_ops, [&]{ auto* c = root->DeepCopy(); DataNode::Destroy(c); }), buf, sizeof(buf)));
-        DataNode::Destroy(root);
+            fmt(bench(parse_ops, [&]{ auto* c = root->DeepCopy(); DataNode::Decref(c); }), buf, sizeof(buf)));
+        DataNode::Decref(root);
     }
 
     // Pool stats

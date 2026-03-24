@@ -2,18 +2,10 @@
 #include <cstring>
 
 DataHandle::DataHandle(DataNode* owned)
-    : root(std::shared_ptr<DataNode>(owned, DataNode::Destroy)), node(owned) {}
-
-DataHandle::DataHandle(std::shared_ptr<DataNode> root, DataNode* node)
-    : root(std::move(root)), node(node) {}
+    : node(owned) {}
 
 DataHandle::~DataHandle() {
-    if (owns_refcount_ && node) {
-        node->refcount--;
-        if (node->refcount == 0 && node->orphaned) {
-            DataNode::Destroy(node);
-        }
-    }
+    DataNode::Decref(node);
 }
 
 DataHandle* DataHandle::Parse(const char* data, size_t len) {

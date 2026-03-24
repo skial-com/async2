@@ -199,7 +199,7 @@ static void bench_parse_only(const std::string& data) {
         auto s = Clock::now();
         for (int i = 0; i < ops; i++) {
             auto* r = DataParseJson(data.data(), data.size());
-            DataNode::Destroy(r);
+            DataNode::Decref(r);
         }
         auto e = Clock::now();
         double ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / ops;
@@ -254,7 +254,7 @@ static void bench_parse_and_convert(const std::string& data) {
             yyjson_doc* doc = yyjson_read(data.data(), data.size(), 0);
             auto* node = yyjson_to_node(yyjson_doc_get_root(doc));
             yyjson_doc_free(doc);
-            DataNode::Destroy(node);
+            DataNode::Decref(node);
         }
         auto e = Clock::now();
         table.back().yyjson_ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / ops;
@@ -267,7 +267,7 @@ static void bench_parse_and_convert(const std::string& data) {
         for (int i = 0; i < ops; i++) {
             auto doc = parser.iterate(padded);
             auto* node = simdjson_to_node_element(doc.value());
-            DataNode::Destroy(node);
+            DataNode::Decref(node);
         }
         auto e = Clock::now();
         table.back().simdjson_ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / ops;
@@ -280,7 +280,7 @@ static void bench_parse_and_convert(const std::string& data) {
             json_t* root = json_loadb(data.data(), data.size(), 0, &err);
             auto* node = jansson_to_node(root);
             json_decref(root);
-            DataNode::Destroy(node);
+            DataNode::Decref(node);
         }
         auto e = Clock::now();
         table.back().jansson_ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / ops;
@@ -313,7 +313,7 @@ static void bench_obj_access_native(const std::string& data, const char* obj_key
         (void)sink;
         double ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / OPS;
         table.push_back({label, ns, 0, 0, 0});
-        DataNode::Destroy(root);
+        DataNode::Decref(root);
     }
     // -- yyjson --
     {
@@ -376,7 +376,7 @@ static void bench_arr_access_native(const std::string& data, const char* arr_key
         (void)sink;
         double ns = (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count() / OPS;
         table.push_back({label, ns, 0, 0, 0});
-        DataNode::Destroy(root);
+        DataNode::Decref(root);
     }
     // -- yyjson (array access is O(n) linear scan) --
     {
@@ -436,7 +436,7 @@ static void bench_obj_insert(int n) {
             auto* obj = DataNode::MakeObject();
             for (int i = 0; i < n; i++)
                 obj->ObjInsert(keys[i], DataNode::MakeInt(i));
-            DataNode::Destroy(obj);
+            DataNode::Decref(obj);
         }
         auto e = Clock::now();
         int total = (OPS / n) * n;
@@ -509,7 +509,7 @@ static void bench_obj_delete(int n) {
                 obj->ObjErase(keys[shuffles[r][i]]);
             auto e = Clock::now();
             total_ns += (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count();
-            DataNode::Destroy(obj);
+            DataNode::Decref(obj);
         }
         int total = reps * n;
         table.push_back({label, total_ns / total, 0, -1, 0});
@@ -565,7 +565,7 @@ static void bench_arr_append(int n) {
             auto* arr = DataNode::MakeArray();
             for (int i = 0; i < n; i++)
                 arr->arr.push_back(DataNode::MakeInt(i));
-            DataNode::Destroy(arr);
+            DataNode::Decref(arr);
         }
         auto e = Clock::now();
         int total = (OPS / n) * n;
@@ -620,7 +620,7 @@ static void bench_arr_random_insert(int n) {
             auto* arr = DataNode::MakeArray();
             for (int i = 0; i < n; i++)
                 arr->arr.insert(arr->arr.begin() + positions[i], DataNode::MakeInt(i));
-            DataNode::Destroy(arr);
+            DataNode::Decref(arr);
         }
         auto e = Clock::now();
         int total = reps * n;
@@ -682,12 +682,12 @@ static void bench_arr_random_delete(int n) {
             auto s = Clock::now();
             for (int i = 0; i < n; i++) {
                 int idx = indices[r][i];
-                DataNode::Destroy(arr->arr[idx]);
+                DataNode::Decref(arr->arr[idx]);
                 arr->arr.erase(arr->arr.begin() + idx);
             }
             auto e = Clock::now();
             total_ns += (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count();
-            DataNode::Destroy(arr);
+            DataNode::Decref(arr);
         }
         int total = reps * n;
         table.push_back({label, total_ns / total, 0, -1, 0});
@@ -781,7 +781,7 @@ int main(int argc, char** argv) {
         printf("DataNode parse-only: %d ops, %zu bytes\n", ops, data.size());
         for (int i = 0; i < ops; i++) {
             auto* r = DataParseJson(data.data(), data.size());
-            DataNode::Destroy(r);
+            DataNode::Decref(r);
         }
         return 0;
     }

@@ -29,7 +29,7 @@ static void test_json_object() {
     CHECK(n && n->type == DataType::Object, "json object");
     auto* v = n->ObjFind("key");
     CHECK(v && v->type == DataType::String && v->str_val == "value", "json object value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_json_array() {
@@ -38,7 +38,7 @@ static void test_json_array() {
     CHECK(n->arr.size() == 3, "json array length");
     CHECK(n->arr[0]->int_val == 1, "json array[0]");
     CHECK(n->arr[2]->int_val == 3, "json array[2]");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_json_nested() {
@@ -51,7 +51,7 @@ static void test_json_nested() {
     CHECK(b->arr[0]->int_val == 1, "nested array int");
     CHECK(b->arr[1]->bool_val == true, "nested array bool");
     CHECK(b->arr[2]->type == DataType::Null, "nested array null");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_json_string_escapes() {
@@ -59,7 +59,7 @@ static void test_json_string_escapes() {
     CHECK(n != nullptr, "string escapes parse");
     auto* v = n->ObjFind("a");
     CHECK(v && v->str_val == "hello\nworld\t!", "string escapes value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_json_numbers() {
@@ -68,7 +68,7 @@ static void test_json_numbers() {
     CHECK(n->ObjFind("i")->int_val == 42, "int 42");
     CHECK(n->ObjFind("f")->type == DataType::Float, "float type");
     CHECK(n->ObjFind("neg")->int_val == -7, "negative int");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 // --- HJSON-specific features ---
@@ -80,7 +80,7 @@ static void test_hash_comments() {
     })");
     CHECK(n && n->type == DataType::Object, "hash comments");
     CHECK(n->ObjFind("key")->str_val == "value", "hash comment value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_line_comments() {
@@ -90,7 +90,7 @@ static void test_line_comments() {
     })");
     CHECK(n && n->type == DataType::Object, "line comments");
     CHECK(n->ObjFind("key")->str_val == "value", "line comment value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_block_comments() {
@@ -100,7 +100,7 @@ static void test_block_comments() {
     })");
     CHECK(n && n->type == DataType::Object, "block comments");
     CHECK(n->ObjFind("key")->str_val == "value", "block comment value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_unquoted_keys() {
@@ -111,7 +111,7 @@ static void test_unquoted_keys() {
     CHECK(n && n->type == DataType::Object, "unquoted keys");
     CHECK(n->ObjFind("name")->str_val == "John", "unquoted key name");
     CHECK(n->ObjFind("age")->int_val == 30, "unquoted key age");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_unquoted_values() {
@@ -122,7 +122,7 @@ static void test_unquoted_values() {
     CHECK(n && n->type == DataType::Object, "unquoted values");
     CHECK(n->ObjFind("message")->str_val == "hello world", "unquoted value message");
     CHECK(n->ObjFind("path")->str_val == "/usr/local/bin", "unquoted value path");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_trailing_commas() {
@@ -133,11 +133,11 @@ static void test_trailing_commas() {
     CHECK(n && n->type == DataType::Object, "trailing commas object");
     CHECK(n->ObjFind("a")->int_val == 1, "trailing comma a");
     CHECK(n->ObjFind("b")->int_val == 2, "trailing comma b");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 
     auto* arr = parse("[1, 2, 3,]");
     CHECK(arr && arr->type == DataType::Array && arr->arr.size() == 3, "trailing comma array");
-    DataNode::Destroy(arr);
+    DataNode::Decref(arr);
 }
 
 static void test_multiline_string() {
@@ -153,7 +153,7 @@ static void test_multiline_string() {
     auto* v = n->ObjFind("text");
     CHECK(v && v->type == DataType::String, "multiline is string");
     CHECK(v->str_val == "first line\n  indented line\nlast line", "multiline indent stripped");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_multiline_embedded_quote() {
@@ -167,7 +167,7 @@ static void test_multiline_embedded_quote() {
     CHECK(n && n->type == DataType::Object, "multiline embedded quote");
     auto* v = n->ObjFind("text");
     CHECK(v && v->str_val.find("it's") != std::string::npos, "multiline contains it's");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_single_quoted_string() {
@@ -180,7 +180,7 @@ static void test_single_quoted_string() {
     CHECK(n->ObjFind("a")->str_val == "single quoted", "single quoted value");
     CHECK(n->ObjFind("b")->str_val == "with ' escape", "single quote escape");
     CHECK(n->ObjFind("c")->str_val == "with \n newline", "single quote newline escape");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_root_object_no_braces() {
@@ -193,7 +193,7 @@ static void test_root_object_no_braces() {
     CHECK(n->ObjFind("name")->str_val == "John", "root no braces name");
     CHECK(n->ObjFind("age")->int_val == 30, "root no braces age");
     CHECK(n->ObjFind("active")->bool_val == true, "root no braces bool");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_keywords() {
@@ -206,7 +206,7 @@ static void test_keywords() {
     CHECK(n->ObjFind("a")->type == DataType::Bool && n->ObjFind("a")->bool_val == true, "true keyword");
     CHECK(n->ObjFind("b")->type == DataType::Bool && n->ObjFind("b")->bool_val == false, "false keyword");
     CHECK(n->ObjFind("c")->type == DataType::Null, "null keyword");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_mixed_separators() {
@@ -219,17 +219,17 @@ static void test_mixed_separators() {
     CHECK(n->ObjFind("a")->int_val == 1, "newline sep a");
     CHECK(n->ObjFind("b")->int_val == 2, "newline sep b");
     CHECK(n->ObjFind("c")->int_val == 3, "newline sep c");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_containers() {
     auto* obj = parse("{}");
     CHECK(obj && obj->type == DataType::Object && obj->ObjSize() == 0, "empty object");
-    DataNode::Destroy(obj);
+    DataNode::Decref(obj);
 
     auto* arr = parse("[]");
     CHECK(arr && arr->type == DataType::Array && arr->arr.size() == 0, "empty array");
-    DataNode::Destroy(arr);
+    DataNode::Decref(arr);
 }
 
 static void test_nested_hjson() {
@@ -255,7 +255,7 @@ static void test_nested_hjson() {
     auto* plugins = n->ObjFind("plugins");
     CHECK(plugins && plugins->type == DataType::Array && plugins->arr.size() == 3, "plugins array");
     CHECK(plugins->arr[0]->str_val == "plugin_a", "plugin_a");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_malformed_input() {
@@ -263,7 +263,7 @@ static void test_malformed_input() {
     CHECK(parse("{") == nullptr, "unclosed brace");
     CHECK(parse("[") == nullptr, "unclosed bracket");
     CHECK(parse("{key}") == nullptr, "missing colon");
-    DataNode::Destroy(nullptr); // safe no-op
+    DataNode::Decref(nullptr); // safe no-op
 }
 
 static void test_leading_zeros() {
@@ -273,25 +273,25 @@ static void test_leading_zeros() {
     CHECK(n != nullptr, "leading zeros parse");
     CHECK(n->ObjFind("a")->type == DataType::String, "00 is string");
     CHECK(n->ObjFind("b")->type == DataType::String, "01 is string");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 
     // Single 0 is fine
     auto* n2 = parse("{\n  a: 0\n}");
     CHECK(n2 && n2->ObjFind("a")->type == DataType::Int && n2->ObjFind("a")->int_val == 0, "0 is int");
-    DataNode::Destroy(n2);
+    DataNode::Decref(n2);
 }
 
 static void test_unicode_escape() {
     auto* n = parse(R"({"key": "\u0041\u0042"})");
     CHECK(n != nullptr, "unicode escape parse");
     CHECK(n->ObjFind("key")->str_val == "AB", "unicode AB");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_empty_multiline() {
     auto* n = parse("''''''");
     CHECK(n && n->type == DataType::String && n->str_val.empty(), "empty multiline string");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 }
 
 static void test_root_value_fallback() {
@@ -299,17 +299,17 @@ static void test_root_value_fallback() {
     auto* n = parse("allow quoteless strings");
     CHECK(n && n->type == DataType::String, "bare quoteless string");
     CHECK(n->str_val == "allow quoteless strings", "bare quoteless string value");
-    DataNode::Destroy(n);
+    DataNode::Decref(n);
 
     // Bare number
     auto* n2 = parse("10");
     CHECK(n2 && n2->type == DataType::Int && n2->int_val == 10, "bare number");
-    DataNode::Destroy(n2);
+    DataNode::Decref(n2);
 
     // Bare number with whitespace
     auto* n3 = parse("\n10\n");
     CHECK(n3 && n3->type == DataType::Int && n3->int_val == 10, "bare number with ws");
-    DataNode::Destroy(n3);
+    DataNode::Decref(n3);
 }
 
 static void test_depth_limit() {
@@ -414,7 +414,7 @@ static void run_hjson_cpp_tests(const std::string& assets_dir) {
                 suite_failed++;
                 failed++;
                 printf("  FAIL: %s (should have failed but parsed ok)\n", basename.c_str());
-                DataNode::Destroy(result);
+                DataNode::Decref(result);
             }
             continue;
         }
@@ -433,7 +433,7 @@ static void run_hjson_cpp_tests(const std::string& assets_dir) {
             // No expected output file, just verify it parsed
             suite_passed++;
             passed++;
-            DataNode::Destroy(result);
+            DataNode::Decref(result);
             continue;
         }
 
@@ -441,7 +441,7 @@ static void run_hjson_cpp_tests(const std::string& assets_dir) {
         DataNode* expected = DataParseJson(expected_json.c_str(), expected_json.size(), &parse_err);
         if (!expected) {
             suite_skipped++;
-            DataNode::Destroy(result);
+            DataNode::Decref(result);
             continue;
         }
 
@@ -454,8 +454,8 @@ static void run_hjson_cpp_tests(const std::string& assets_dir) {
             printf("  FAIL: %s (output mismatch)\n", basename.c_str());
         }
 
-        DataNode::Destroy(result);
-        DataNode::Destroy(expected);
+        DataNode::Decref(result);
+        DataNode::Decref(expected);
     }
 
     printf("  hjson-cpp suite: %d passed, %d failed, %d skipped\n",

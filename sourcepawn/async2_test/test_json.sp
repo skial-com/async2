@@ -121,8 +121,8 @@ void Test_ArrayOfObjects() {
     arr.ArrayAppendObject(child);
     AssertEq(arr.ArrayLength, 1, "Array length after AppendObject");
 
-    // Move: child is now null after append
-    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child null after ArrayAppendObject");
+    // child handle consumed by ArrayAppendObject (Close is safe no-op)
+    child.Close();
 
     Json got = arr.ArrayGetObject(0);
     Assert(view_as<int>(got) != 0, "ArrayGetObject returns non-zero");
@@ -131,7 +131,6 @@ void Test_ArrayOfObjects() {
     AssertStrEq(buf, "test", "ArrayAppendObject moves data");
 
     got.Close();
-    child.Close();
     arr.Close();
 }
 
@@ -142,15 +141,14 @@ void Test_SetObject_Move() {
 
     parent.SetObject("child", child);
 
-    // Child is now null after move
-    AssertEq(view_as<int>(child.Type), view_as<int>(JSON_TYPE_NULL), "Child null after SetObject");
+    // child handle consumed by SetObject (Close is safe no-op)
+    child.Close();
 
     Json got = parent.GetObject("child");
     Assert(view_as<int>(got) != 0, "SetObject child retrievable");
     AssertEq(got.GetInt("val"), 10, "SetObject moves data");
 
     got.Close();
-    child.Close();
     parent.Close();
 }
 

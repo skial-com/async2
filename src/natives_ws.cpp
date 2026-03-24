@@ -227,14 +227,13 @@ static cell_t WsSendNode(const cell_t* params, WsOpType type) {
     DataHandle* dh = g_handle_manager.GetDataHandle(params[2]);
     if (!dh || !dh->node) return 2;
 
-    DataNode* copy = dh->node->DeepCopy();
-    if (!copy) return 3;
-
+    dh->node->Incref();
     auto* op = new WsOp();
     op->type = type;
     op->handle_id = conn->handle_id;
-    op->body_node = copy;
+    op->body_node = dh->node;
     g_event_loop.EnqueueWsOp(op);
+    g_handle_manager.FreeHandle(params[2]);
     return 0;
 }
 

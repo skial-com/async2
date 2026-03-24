@@ -56,8 +56,10 @@ Static libraries via git submodules (`third_party/`): libuv, libcurl 8.18.0 (Ope
 
 **Handle lifecycle**: Two-step close pattern using `MarkHandleClosed` + `FreeHandle`:
 1. `MarkHandleClosed(id)` — sets `closed` flag so `Get*` returns nullptr (prevents use-after-close). Handle stays in map for later `FreeHandle`. Use when user/plugin initiates close but async completion hasn't fired yet (HTTP `Native_HttpClose` on in-flight, `OnClientDisconnecting`).
-2. `FreeHandle(id)` — deletes object, removes from map, recycles handle number. Use when the handle is fully done: HTTP `OnCompletedGameThread`, socket `*_CLOSED` event dispatch, or immediate close of non-in-flight handles.
+2. `FreeHandle(id)` — deletes object, removes from map, recycles handle number. Use when the handle is fully done: HTTP `OnCompletedGameThread`, socket `*_CLOSED` event dispatch, or immediate close of non-in-flight handles. `FreeHandle` on an already-freed handle is a safe no-op.
 Socket close natives (`TcpClose`, `UdpClose`, `WsClose`) set `handle_closed` on the socket object but do NOT call `MarkHandleClosed` — the close event handler calls `FreeHandle` in `DispatchSocketEvent`.
+
+**DataNode per-node refcount**: Each DataNode has `std::atomic<uint32_t> refcount` (starts at 1). `Incref()` takes a new reference; `Decref()` releases one — when refcount hits 0, recursively Decrefs children and returns node to pool. Child handles (`GetObject`/`GetArray`) Incref the child node; when the parent is Decref'd, only nodes with refcount 0 are freed — child subtrees survive independently. This replaces the old `shared_ptr<DataNode>` + orphan mechanism.
 
 **Race guards**: `handle_closed`, `completed`, `in_event_thread` are `std::atomic<bool>`. `OnAsyncAdd` checks `handle_closed` to skip cancelled requests. `OnAsyncCancel` sets `completed = true` to prevent double-push.
 
@@ -88,9 +90,10 @@ Two independent subsystems that cannot share state:
 - **`Async2Extension`** (`src/extension.cpp`) — SDK_OnLoad/Unload, OnGameFrame, client tracking (`g_client_handles` reverse index)
 - **`EventLoop`** (`src/event_loop.cpp`) — libuv loop + curl_multi + DnsResolver, all I/O, retry timers, pool stats
 - **`HttpRequest`** (`src/http_request.cpp`) — per-request state/lifecycle. `PrepareForSend()` (game thread), `SetupCurl()` (event thread: body serialization + compression + curl setup)
-- **`HandleManager`** (`src/handle_manager.cpp`) — six types: HTTP_REQUEST, JSON_VALUE, TCP_SOCKET, UDP_SOCKET, WS_SOCKET, LINKED_LIST. `Handle.closed` flag + free list. `MarkHandleClosed` / `FreeHandle` pattern (see Handle lifecycle above)
-- **`DataNode`** (`src/data/data_node.h`, `src/data/data_node.cpp`) — tagged union DOM (Null/Bool/Int/Float/String/Array/Object/IntMap/Binary), pool-allocated via `FixedPool` (`src/data/data_node_pool.h`)
-- **`DataHandle`** (`src/data/data_handle.cpp`) — mutable data wrapper, `shared_ptr<DataNode>` with `DataNode::Destroy` deleter, built-in object and intmap iterators
+- **`HandleManager`** (`src/handle_manager.cpp`) — seven types: HTTP_REQUEST, JSON_VALUE, TCP_SOCKET, UDP_SOCKET, WS_SOCKET, LINKED_LIST, ITERATOR. `Handle.closed` flag + free list. `MarkHandleClosed` / `FreeHandle` pattern (see Handle lifecycle above)
+- **`DataNode`** (`src/data/data_node.h`, `src/data/data_node.cpp`) — tagged union DOM (Null/Bool/Int/Float/String/Array/Object/IntMap/Binary), pool-allocated via `FixedPool` (`src/data/data_node_pool.h`). Per-node `std::atomic<uint32_t> refcount` for lifetime management (jansson model). `Incref()` / `Decref()` — when refcount hits 0, recursively Decref children and return to pool.
+- **`DataHandle`** (`src/data/data_handle.cpp`) — thin wrapper: just `DataNode* node`. Destructor calls `Decref(node)`. No shared_ptr, no iterator state.
+- **`DataIterator`** (`src/data/data_iterator.h`, `src/data/data_iterator.cpp`) — standalone iterator for Object/IntMap containers. Holds `DataNode*` with Incref'd refcount. Own handle type (`HANDLE_ITERATOR`).
 - **`DnsResolver`** (`src/dns_resolver.cpp`) — c-ares + app-level DNS cache
 - **`TcpSocket`** (`src/tcp_socket.h`), **`UdpSocket`** (`src/udp_socket.h`) — socket state machines
 - **`WsConnection`** (`src/ws_connection.h`) — WebSocket via curl CONNECT_ONLY=2 + uv_poll_t, message reassembly, auto-ping, close handshake
@@ -105,7 +108,7 @@ Nine tables in extension.cpp, all prefixed `async2_`:
 | Table | File | Key natives |
 |-------|------|------------|
 | `g_HttpNatives` | `natives_http.cpp` | HttpNew, HttpClose, HttpExecute, SetBody*, SetHeader, GetString, GetRawData, GetResponseBytes, SetRetry, SetOwner, SetResponseType |
-| `g_JsonNatives` | `natives_json.cpp` | JsonParseResponse, JsonCreate*, JsonGet/Set*, JsonArray*, JsonObjectIter*, JsonPath*, JsonSerialize, Int64 variants, IntObject* |
+| `g_JsonNatives` | `natives_json.cpp` | JsonParseResponse, JsonCreate*, JsonGet/Set*, JsonArray*, JsonRef, JsonPath*, JsonSerialize, Int64 variants, IntObject*, ObjectIterCreate, IntMapIterCreate, IterNext/Close |
 | `g_CurlNatives` | `natives_curl.cpp` | SetOptInt/String, GetInfoInt/String, SetMultiOpt |
 | `g_MsgPackNatives` | `natives_msgpack.cpp` | MsgPackParse, MsgPackParseBuffer, MsgPackSerialize, SetBodyMsgPack |
 | `g_TcpNatives` | `natives_tcp.cpp` | TcpNew, TcpSetCallbacks, TcpConnect, TcpBind, TcpSend, TcpClose, TcpListen, TcpSetOption |
@@ -120,12 +123,15 @@ Shared: `GET_HTTP_REQUEST()` macro + `extern HandleManager g_handle_manager` in 
 
 `sourcepawn/async2.inc` — natives and methodmaps grouped by type, curl enums at end. Use `async2_HttpNew()` not `new WebRequest()`.
 
-- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` deep-copy the DataNode tree; serialization happens on event thread.
+- `SetBody`/`SetBodyString` and `SetBodyJSON`/`SetBodyMsgPack` are mutually exclusive — each clears the other. `SetBodyJSON`/`SetBodyMsgPack` **consume the JSON handle** (Incref + FreeHandle, zero-copy); serialization happens on event thread. `Close()` after send is a safe no-op.
+- `WsSendJSON`/`WsSendMsgPack` also **consume the JSON handle** — same Incref + FreeHandle pattern.
+- `SetObject`/`ArraySetObject`/`ArrayAppendObject`/`IntMapSetObject` **consume the child handle** — Incref the child node, insert directly into parent, FreeHandle the child. `Close()` after is a safe no-op.
+- **`JsonRef()`** — O(1) lightweight reference: new handle sharing the same DataNode tree via Incref. Mutations through either handle affect both. Close independently. Pairs with `JsonCopy()` (deep copy).
 - `SetResponseType(RESPONSE_JSON)` or `SetResponseType(RESPONSE_MSGPACK)` before Execute: parses response on event thread, delivers `Json data` handle directly in callback (simplified overload). On parse failure, `data` is 0 and raw body is accessible via `GetString`/`GetRawData`. On cancel (`handle_closed`), raw callback fires with `curlcode=42`, `size=0`.
 - `JsonPath*` vararg natives: path elements inferred from node type (string→object key, int→array index, int→intmap key). Cannot be wrapped in methodmap methods (SourcePawn can't forward varargs).
 - **Int64**: passed via `int[2]` (`[0]`=low, `[1]`=high). `SOURCEMOD_INT64` define switches to native `int64` types. `JsonPathGetInt64` stays `int[2]` unconditionally (can't pass `int64` as `any` in varargs).
-- **IntObject**: int64-keyed map (`DataType::IntMap`). Same handle type as Json (`HANDLE_JSON_VALUE`), close with `JsonClose`. 32-bit key natives sign-extend `cell_t` to `int64_t`; 64-bit key natives (`IntObject64*`) use `int[2]`. JSON serialize outputs null (JSON can't represent int keys). MsgPack round-trips losslessly with native int keys. IntMap iterator: `IntObjectIterReset()` + `IntObjectIterNext()`.
-- Object iterator: `ObjectIterReset()` + `ObjectIterNext()`. Don't add/remove keys while iterating; changing existing values is safe.
+- **IntObject**: int64-keyed map (`DataType::IntMap`). Same handle type as Json (`HANDLE_JSON_VALUE`), close with `JsonClose`. 32-bit key natives sign-extend `cell_t` to `int64_t`; 64-bit key natives (`IntObject64*`) use `int[2]`. JSON serialize outputs null (JSON can't represent int keys). MsgPack round-trips losslessly with native int keys.
+- **Iterator handles**: `Iterator.FromObject(obj)` / `Iterator.FromIntMap(map)` create standalone `HANDLE_ITERATOR` handles. `iter.Next(key, maxlen)` / `iter.NextInt(key)` / `iter.NextInt64(key)`. Must call `iter.Close()`. Multiple concurrent iterators on the same container are supported. Don't add/remove keys while iterating.
 - TCP options 0-3 set before connect/listen, 4-5 (buffer sizes) any time. UDP options 0-1 before bind, 2-3 any time.
 - DNS natives only affect TCP/UDP — HTTP DNS managed by curl separately.
 
@@ -138,7 +144,7 @@ Shared: `GET_HTTP_REQUEST()` macro + `extern HandleManager g_handle_manager` in 
   1. Use `thread_local T*` with explicit cleanup — never `thread_local` with non-trivial destructors (`__cxa_thread_atexit` pins the `.so`).
   2. `version_script.lds` hides `STB_GNU_UNIQUE` symbols from `-static-libstdc++`.
   3. Verify: `readelf -sW <binary> | grep UNIQUE` should be empty.
-- Do not use `unique_ptr` for DataNode — use raw pointers with `DataNode::Destroy()`
+- Do not use `unique_ptr` for DataNode — use raw pointers with `DataNode::Decref()`. Nodes are created with `refcount=1`; `Incref()` to take a new reference, `Decref()` to release. When refcount hits 0, node and children are recursively freed to pool.
 - Do not use `apt-get` for deps — all in `third_party/` submodules, built by `build_deps.sh`
 - **SourcePawn varargs**: `any ...` passes ALL args by reference. Use `LocalToString` for strings, `LocalToPhysAddr` + dereference for ints. Never read `params[idx]` directly as int value.
 - **Binary data in natives**: `LocalToPhysAddr` (not `LocalToString`) for raw bytes. `SM_PARAM_STRING_BINARY` for callbacks.

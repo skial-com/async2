@@ -84,12 +84,10 @@ static cell_t Native_SetBodyMsgPack(IPluginContext* pContext, const cell_t* para
     if (!json || !json->node)
         return 2;
 
-    DataNode* copy = json->node->DeepCopy();
-    if (!copy)
-        return 3;
-
-    request->SetBodyNode(copy, BodyFormat::MSGPACK);
+    json->node->Incref();
+    request->SetBodyNode(json->node, BodyFormat::MSGPACK);
     request->SetHeader("Content-Type", "application/msgpack");
+    g_handle_manager.FreeHandle(params[2]);
     return 0;
 }
 

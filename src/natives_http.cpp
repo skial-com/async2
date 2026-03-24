@@ -113,12 +113,10 @@ static cell_t Native_SetBodyJSON(IPluginContext* pContext, const cell_t* params)
     if (!json || !json->node)
         return 2;
 
-    DataNode* copy = json->node->DeepCopy();
-    if (!copy)
-        return 3;
-
-    request->SetBodyNode(copy, BodyFormat::JSON);
+    json->node->Incref();
+    request->SetBodyNode(json->node, BodyFormat::JSON);
     request->SetHeader("Content-Type", "application/json");
+    g_handle_manager.FreeHandle(params[2]);
     return 0;
 }
 

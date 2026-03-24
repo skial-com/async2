@@ -1,7 +1,6 @@
 #ifndef ASYNC2_DATA_ITERATOR_H
 #define ASYNC2_DATA_ITERATOR_H
 
-#include <memory>
 #include "data_node.h"
 
 enum class IteratorType { Object, IntMap };
@@ -11,8 +10,8 @@ public:
     using ObjIterType = DataMap<std::string, DataNode*>::const_iterator;
     using IntMapIterType = DataMap<int64_t, DataNode*>::const_iterator;
 
-    static DataIterator* CreateObject(std::shared_ptr<DataNode> root, DataNode* node);
-    static DataIterator* CreateIntMap(std::shared_ptr<DataNode> root, DataNode* node);
+    static DataIterator* CreateObject(DataNode* node);
+    static DataIterator* CreateIntMap(DataNode* node);
     ~DataIterator();
 
     bool Next();
@@ -24,8 +23,7 @@ private:
     DataIterator() : type_(IteratorType::Object), node_(nullptr) {}
 
     IteratorType type_;
-    std::shared_ptr<DataNode> root_;  // keeps tree alive
-    DataNode* node_;                  // container being iterated
+    DataNode* node_;                  // container being iterated (refcount incremented)
 
     union {
         ObjIterType obj_iter_;
