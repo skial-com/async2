@@ -736,6 +736,11 @@ static cell_t Native_JsonEquals(IPluginContext* pContext, const cell_t* params) 
     return json->node->Equals(other->node) ? 1 : 0;
 }
 
+static cell_t Native_JsonRef(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return WrapChildNode(pContext, json, json->node);
+}
+
 static cell_t Native_JsonCopy(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     DataNode* copy = json->node->DeepCopy();
@@ -1224,6 +1229,7 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_JsonArrayAppendNull",      Native_JsonArrayAppendNull},
     {"async2_JsonArrayAppendObject",    Native_JsonArrayAppendObject},
     {"async2_JsonEquals",               Native_JsonEquals},
+    {"async2_JsonRef",                  Native_JsonRef},
     {"async2_JsonCopy",                 Native_JsonCopy},
     {"async2_JsonSerialize",            Native_JsonSerialize},
     {"async2_JsonPathGetInt",           Native_JsonPathGetInt},

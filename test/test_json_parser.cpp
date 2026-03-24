@@ -3,6 +3,7 @@
 
 #include "data_node.h"
 #include "data_handle.h"
+#include "data_iterator.h"
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
@@ -482,13 +483,14 @@ static void test_iterator(TestResult& result) {
         auto* node = DataParseJson("{\"a\":1,\"b\":2,\"c\":3}", 19);
         DataHandle handle(node);
         std::map<std::string, int64_t> found;
-        handle.ObjectIterReset();
-        while (handle.ObjectIterNext()) {
-            std::string key = handle.ObjectIterKey();
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        while (iter->Next()) {
+            std::string key = iter->ObjectKey();
             auto* val = node->ObjFind(key);
             if (val && val->type == DataType::Int)
                 found[key] = val->int_val;
         }
+        delete iter;
         if (found.size() == 3 && found["a"] == 1 && found["b"] == 2 && found["c"] == 3)
             result.passed++;
         else { result.failed++; result.failures.push_back("Iterator: basic iteration"); }
@@ -498,8 +500,10 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("{}", 2);
         DataHandle handle(node);
-        handle.ObjectIterReset();
-        if (!handle.ObjectIterNext()) result.passed++;
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        bool has = iter->Next();
+        delete iter;
+        if (!has) result.passed++;
         else { result.failed++; result.failures.push_back("Iterator: empty object"); }
     }
 
@@ -507,45 +511,41 @@ static void test_iterator(TestResult& result) {
     {
         auto* node = DataParseJson("{\"only\":true}", 13);
         DataHandle handle(node);
-        handle.ObjectIterReset();
-        bool first = handle.ObjectIterNext();
-        std::string key = handle.ObjectIterKey();
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        bool first = iter->Next();
+        std::string key = iter->ObjectKey();
         auto* val = node->ObjFind(key);
-        bool second = handle.ObjectIterNext();
+        bool second = iter->Next();
+        delete iter;
         if (first && !second && key == "only" && val && val->type == DataType::Bool && val->bool_val)
             result.passed++;
         else { result.failed++; result.failures.push_back("Iterator: single key"); }
     }
 
-    // Reset mid-iteration
+    // Fresh iterator after consuming — create new iterator to restart
     {
         auto* node = DataParseJson("{\"x\":10,\"y\":20}", 15);
         DataHandle handle(node);
-        handle.ObjectIterReset();
-        handle.ObjectIterNext(); // consume one
-        handle.ObjectIterReset(); // reset
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        iter->Next(); // consume one
+        delete iter;
 
+        // New iterator starts from beginning
+        iter = DataIterator::CreateObject(handle.root, handle.node);
         int count = 0;
-        while (handle.ObjectIterNext()) count++;
+        while (iter->Next()) count++;
+        delete iter;
         if (count == 2) result.passed++;
-        else { result.failed++; result.failures.push_back("Iterator: reset mid-iteration"); }
+        else { result.failed++; result.failures.push_back("Iterator: fresh iterator restarts"); }
     }
 
-    // IterNext without reset returns false
-    {
-        auto* node = DataParseJson("{\"a\":1}", 7);
-        DataHandle handle(node);
-        if (!handle.ObjectIterNext()) result.passed++;
-        else { result.failed++; result.failures.push_back("Iterator: next without reset"); }
-    }
-
-    // Non-object node — reset should be safe, next returns false
+    // Non-object node — CreateObject returns nullptr
     {
         auto* node = DataParseJson("[1,2,3]", 7);
         DataHandle handle(node);
-        handle.ObjectIterReset();
-        if (!handle.ObjectIterNext()) result.passed++;
-        else { result.failed++; result.failures.push_back("Iterator: non-object"); }
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        if (iter == nullptr) result.passed++;
+        else { delete iter; result.failed++; result.failures.push_back("Iterator: non-object"); }
     }
 
     // Nested objects — iterate outer keys
@@ -553,9 +553,10 @@ static void test_iterator(TestResult& result) {
         const char* json = "{\"obj\":{\"inner\":1},\"arr\":[1,2],\"val\":\"str\"}";
         auto* node = DataParseJson(json, strlen(json));
         DataHandle handle(node);
-        handle.ObjectIterReset();
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
         int count = 0;
-        while (handle.ObjectIterNext()) count++;
+        while (iter->Next()) count++;
+        delete iter;
         if (count == 3) result.passed++;
         else { result.failed++; result.failures.push_back("Iterator: nested objects count"); }
     }
@@ -566,12 +567,13 @@ static void test_iterator(TestResult& result) {
         auto* node = DataParseJson(json, strlen(json));
         DataHandle handle(node);
         std::map<std::string, DataType> types;
-        handle.ObjectIterReset();
-        while (handle.ObjectIterNext()) {
-            std::string key = handle.ObjectIterKey();
+        auto* iter = DataIterator::CreateObject(handle.root, handle.node);
+        while (iter->Next()) {
+            std::string key = iter->ObjectKey();
             auto* val = node->ObjFind(key);
             if (val) types[key] = val->type;
         }
+        delete iter;
         if (types.size() == 5 &&
             types["s"] == DataType::String &&
             types["i"] == DataType::Int &&

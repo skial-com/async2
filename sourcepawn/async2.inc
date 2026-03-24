@@ -138,6 +138,9 @@ public void __ext_async2_SetNTVOptional()
     MarkNativeAsOptional("async2_SetHandlePlugin");
     MarkNativeAsOptional("async2_LinkedListCopy");
 
+    // Ref (shared handle)
+    MarkNativeAsOptional("async2_JsonRef");
+
     // Iterator handles
     MarkNativeAsOptional("async2_ObjectIterCreate");
     MarkNativeAsOptional("async2_IntMapIterCreate");

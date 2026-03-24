@@ -13,6 +13,7 @@ set(ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(DATA_SRCS
     ${ROOT}/src/data/data_node.cpp
     ${ROOT}/src/data/data_handle.cpp
+    ${ROOT}/src/data/data_iterator.cpp
 )
 set(SIMDJSON ${ROOT}/third_party/simdjson/singleheader/simdjson.cpp)
 

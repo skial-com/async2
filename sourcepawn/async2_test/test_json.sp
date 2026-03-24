@@ -320,6 +320,41 @@ void Test_ObjectIteration() {
     obj.Close();
 }
 
+void Test_Ref() {
+    Json obj = Json.CreateObject();
+    obj.SetInt("x", 10);
+    obj.SetString("name", "test");
+
+    // Ref shares the same data
+    Json ref = obj.Ref();
+    AssertEq(ref.GetInt("x"), 10, "Ref reads same data");
+
+    // Mutation through ref visible in original
+    ref.SetInt("x", 20);
+    AssertEq(obj.GetInt("x"), 20, "Ref mutation visible in original");
+
+    // Mutation through original visible in ref
+    obj.SetInt("y", 30);
+    AssertEq(ref.GetInt("y"), 30, "Original mutation visible in ref");
+
+    // Close original, ref still works
+    obj.Close();
+    AssertEq(ref.GetInt("x"), 20, "Ref survives original close");
+    AssertEq(ref.GetInt("y"), 30, "Ref data intact after original close");
+
+    // Iterator on ref
+    char key[64];
+    int count = 0;
+    Iterator iter = Iterator.FromObject(ref);
+    while (iter.Next(key, sizeof(key))) {
+        count++;
+    }
+    iter.Close();
+    AssertEq(count, 3, "Ref iterator visits all keys");
+
+    ref.Close();
+}
+
 void Test_ChildOutlivesParent() {
     Json child;
     {
@@ -762,6 +797,7 @@ void RunJsonTests() {
     Test_Copy_Deep();
     Test_Serialize();
     Test_ObjectIteration();
+    Test_Ref();
     Test_ChildOutlivesParent();
     Test_MultipleTypes();
     Test_PathGetInt();

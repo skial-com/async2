@@ -173,6 +173,11 @@ native int async2_JsonArrayAppendObject(Json jsonHandle, Json childHandle);
 // Returns true if both trees have the same structure and values.
 native bool async2_JsonEquals(Json jsonHandle, Json otherHandle);
 
+// Lightweight reference: returns a new handle sharing the same underlying data.
+// Mutations through either handle affect both. Each has its own iterator.
+// Must be closed with async2_JsonClose independently.
+native Json async2_JsonRef(Json jsonHandle);
+
 // Deep copy: copies the entire JSON tree rooted at this handle.
 // Returns a new independent JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonCopy(Json jsonHandle);
@@ -473,6 +478,10 @@ methodmap Json __nullable__ {
 
     public bool Equals(Json other) {
         return async2_JsonEquals(this, other);
+    }
+
+    public Json Ref() {
+        return view_as<Json>(async2_JsonRef(this));
     }
 
     public Json Copy() {
