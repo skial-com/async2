@@ -277,6 +277,8 @@ stock WebRequest async2_PostJson(const char[] url, Json &jsonHandle, WebCallback
     if (request) {
         async2_SetBodyJSON(request, jsonHandle);
         async2_HttpExecute(request, "POST", url, callback);
+    } else {
+        async2_JsonClose(jsonHandle);
     }
     jsonHandle = null;
     return request;
@@ -322,6 +324,8 @@ methodmap WebRequest __nullable__ {
             async2_SetBodyJSON(request, json);
             async2_SetResponseType(request, RESPONSE_JSON);
             async2_HttpExecute(request, "POST", url, cb);
+        } else {
+            async2_JsonClose(json);
         }
         json = null;
         return request;

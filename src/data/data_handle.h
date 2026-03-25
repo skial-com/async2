@@ -106,6 +106,23 @@ public:
     std::string SerializeToString(bool pretty = false) const;
 };
 
+// Map DataNode::type to the SourcePawn-visible JsonType enum.
+inline Async2DataType NodeToType(const DataNode* n) {
+    if (!n) return JSON_TYPE_NONE;
+    switch (n->type) {
+        case DataType::Null:   return JSON_TYPE_NULL;
+        case DataType::Bool:   return JSON_TYPE_BOOL;
+        case DataType::Int:
+        case DataType::Float:  return JSON_TYPE_NUMBER;
+        case DataType::String: return JSON_TYPE_STRING;
+        case DataType::Array:  return JSON_TYPE_ARRAY;
+        case DataType::Object: return JSON_TYPE_OBJECT;
+        case DataType::IntMap: return JSON_TYPE_INTOBJECT;
+        case DataType::Binary: return JSON_TYPE_BINARY;
+    }
+    return JSON_TYPE_NONE;
+}
+
 // Steal the node if sole owner (refcount==1), otherwise DeepCopy.
 // Clears dh->node so the DataHandle destructor won't Decref.
 inline DataNode* StealOrCopyNode(DataHandle* dh) {

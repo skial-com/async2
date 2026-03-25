@@ -153,6 +153,7 @@ public void __ext_async2_SetNTVOptional()
     // API version 3: iterator value access
     MarkNativeAsOptional("async2_IterGetType");
     MarkNativeAsOptional("async2_IterGetInt");
+    MarkNativeAsOptional("async2_IterGetInt64");
     MarkNativeAsOptional("async2_IterGetFloat");
     MarkNativeAsOptional("async2_IterGetBool");
     MarkNativeAsOptional("async2_IterGetString");

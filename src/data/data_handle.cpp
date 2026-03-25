@@ -32,19 +32,7 @@ DataHandle* DataHandle::CreateIntMap() {
 }
 
 Async2DataType DataHandle::GetType() const {
-    if (!node) return JSON_TYPE_NONE;
-    switch (node->type) {
-        case DataType::Null:   return JSON_TYPE_NULL;
-        case DataType::Bool:   return JSON_TYPE_BOOL;
-        case DataType::Int:
-        case DataType::Float:  return JSON_TYPE_NUMBER;
-        case DataType::String: return JSON_TYPE_STRING;
-        case DataType::Array:  return JSON_TYPE_ARRAY;
-        case DataType::Object: return JSON_TYPE_OBJECT;
-        case DataType::IntMap: return JSON_TYPE_INTOBJECT;
-        case DataType::Binary: return JSON_TYPE_BINARY;
-    }
-    return JSON_TYPE_NONE;
+    return NodeToType(node);
 }
 
 size_t DataHandle::ObjectSize() const {

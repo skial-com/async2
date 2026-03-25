@@ -56,6 +56,7 @@ native int async2_IterClose(Iterator iter);
 // Returns the value at the position that was just advanced to.
 native JsonType async2_IterGetType(Iterator iter);
 native int async2_IterGetInt(Iterator iter);
+native int async2_IterGetInt64(Iterator iter, int val[2]);
 native float async2_IterGetFloat(Iterator iter);
 native bool async2_IterGetBool(Iterator iter);
 native int async2_IterGetString(Iterator iter, char[] buf, int maxlen);
@@ -95,6 +96,10 @@ methodmap Iterator __nullable__ {
 
     public int GetInt() {
         return async2_IterGetInt(this);
+    }
+
+    public void GetInt64(int val[2]) {
+        async2_IterGetInt64(this, val);
     }
 
     public float GetFloat() {
