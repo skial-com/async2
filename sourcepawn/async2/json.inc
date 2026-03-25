@@ -278,6 +278,30 @@ methodmap Json __nullable__ {
         }
     }
 
+    property bool IsNull {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_NULL; }
+    }
+
+    property bool IsObject {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_OBJECT; }
+    }
+
+    property bool IsArray {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_ARRAY; }
+    }
+
+    property bool IsString {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_STRING; }
+    }
+
+    property bool IsNumber {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_NUMBER; }
+    }
+
+    property bool IsBool {
+        public get() { return async2_JsonGetType(this) == JSON_TYPE_BOOL; }
+    }
+
     property int ObjectSize {
         public get() {
             return async2_JsonObjectSize(this);

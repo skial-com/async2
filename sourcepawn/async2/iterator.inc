@@ -52,6 +52,16 @@ native bool async2_IntMapIterNext64(Iterator iter, int key[2]);
 // Closes an iterator handle.
 native int async2_IterClose(Iterator iter);
 
+// Value access for the current iterator position (call after Next/NextInt/NextInt64).
+// Returns the value at the position that was just advanced to.
+native JsonType async2_IterGetType(Iterator iter);
+native int async2_IterGetInt(Iterator iter);
+native float async2_IterGetFloat(Iterator iter);
+native bool async2_IterGetBool(Iterator iter);
+native int async2_IterGetString(Iterator iter, char[] buf, int maxlen);
+// Returns a new handle to the child object/array/intmap. Must be closed.
+native Json async2_IterGetObject(Iterator iter);
+
 methodmap Iterator __nullable__ {
     // Create an iterator over an object's key-value pairs.
     public static Iterator FromObject(Json obj) {
@@ -76,6 +86,32 @@ methodmap Iterator __nullable__ {
     // Advance (intmap iterator, 64-bit key). Returns false when done.
     public bool NextInt64(int key[2]) {
         return async2_IntMapIterNext64(this, key);
+    }
+
+    // Value access for the current position (call after Next/NextInt/NextInt64).
+    public JsonType GetType() {
+        return async2_IterGetType(this);
+    }
+
+    public int GetInt() {
+        return async2_IterGetInt(this);
+    }
+
+    public float GetFloat() {
+        return async2_IterGetFloat(this);
+    }
+
+    public bool GetBool() {
+        return async2_IterGetBool(this);
+    }
+
+    public int GetString(char[] buf, int maxlen) {
+        return async2_IterGetString(this, buf, maxlen);
+    }
+
+    // Returns a new handle to the child object/array/intmap. Must be closed.
+    public Json GetObject() {
+        return view_as<Json>(async2_IterGetObject(this));
     }
 
     public void Close() {

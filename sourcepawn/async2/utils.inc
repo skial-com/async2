@@ -11,7 +11,7 @@
  * Returns the extension's API version number.
  * Use this to detect feature availability at runtime.
  * Returns 0 on extensions older than the native (marked optional).
- * See API_VERSIONS.md for version history.
+ * See __ext_async2_SetNTVOptional in async2.inc for version history.
  */
 native int async2_GetVersion();
 

@@ -138,21 +138,23 @@ public void __ext_async2_SetNTVOptional()
     MarkNativeAsOptional("async2_MsgPackSetMaxElements");
     MarkNativeAsOptional("async2_MsgPackGetMaxElements");
 
-    // Handle ownership
+    // API version 2: handle ownership, refs, iterators, auto-consume
     MarkNativeAsOptional("async2_SetHandlePlugin");
     MarkNativeAsOptional("async2_LinkedListCopy");
-
-    // Ref (shared handle)
     MarkNativeAsOptional("async2_JsonRef");
-
-    // API version
     MarkNativeAsOptional("async2_GetVersion");
-
-    // Iterator handles
     MarkNativeAsOptional("async2_ObjectIterCreate");
     MarkNativeAsOptional("async2_IntMapIterCreate");
     MarkNativeAsOptional("async2_IterNext");
     MarkNativeAsOptional("async2_IntMapIterNext");
     MarkNativeAsOptional("async2_IntMapIterNext64");
     MarkNativeAsOptional("async2_IterClose");
+
+    // API version 3: iterator value access
+    MarkNativeAsOptional("async2_IterGetType");
+    MarkNativeAsOptional("async2_IterGetInt");
+    MarkNativeAsOptional("async2_IterGetFloat");
+    MarkNativeAsOptional("async2_IterGetBool");
+    MarkNativeAsOptional("async2_IterGetString");
+    MarkNativeAsOptional("async2_IterGetObject");
 }

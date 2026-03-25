@@ -512,6 +512,83 @@ static cell_t Native_IterClose(IPluginContext* pContext, const cell_t* params) {
     return 0;
 }
 
+// Iterator value access
+static Async2DataType NodeToType(DataNode* n) {
+    if (!n) return JSON_TYPE_NONE;
+    switch (n->type) {
+        case DataType::Null:   return JSON_TYPE_NULL;
+        case DataType::Bool:   return JSON_TYPE_BOOL;
+        case DataType::Int:
+        case DataType::Float:  return JSON_TYPE_NUMBER;
+        case DataType::String: return JSON_TYPE_STRING;
+        case DataType::Array:  return JSON_TYPE_ARRAY;
+        case DataType::Object: return JSON_TYPE_OBJECT;
+        case DataType::IntMap: return JSON_TYPE_INTOBJECT;
+        case DataType::Binary: return JSON_TYPE_BINARY;
+    }
+    return JSON_TYPE_NONE;
+}
+
+static cell_t Native_IterGetType(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) return 0;
+    return NodeToType(iter->Value());
+}
+
+static cell_t Native_IterGetInt(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) return 0;
+    DataNode* v = iter->Value();
+    if (v->type == DataType::Int) return static_cast<cell_t>(v->int_val);
+    if (v->type == DataType::Float) return static_cast<cell_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
+    return 0;
+}
+
+static cell_t Native_IterGetFloat(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) return 0;
+    DataNode* v = iter->Value();
+    float result = 0.0f;
+    if (v->type == DataType::Float) result = static_cast<float>(v->float_val);
+    else if (v->type == DataType::Int) result = static_cast<float>(v->int_val);
+    return sp_ftoc(result);
+}
+
+static cell_t Native_IterGetBool(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) return 0;
+    DataNode* v = iter->Value();
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
+    if (v->type == DataType::Int) return v->int_val != 0 ? 1 : 0;
+    return 0;
+}
+
+static cell_t Native_IterGetString(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) {
+        pContext->StringToLocal(params[2], params[3], "");
+        return 0;
+    }
+    DataNode* v = iter->Value();
+    if (v->type == DataType::String) {
+        pContext->StringToLocal(params[2], params[3], v->str_val.c_str());
+        return static_cast<cell_t>(v->str_val.size());
+    }
+    pContext->StringToLocal(params[2], params[3], "");
+    return 0;
+}
+
+static cell_t Native_IterGetObject(IPluginContext* pContext, const cell_t* params) {
+    DataIterator* iter = g_handle_manager.GetDataIterator(params[1]);
+    if (!iter || !iter->Value()) return 0;
+    DataNode* v = iter->Value();
+    if (v->type != DataType::Object && v->type != DataType::Array &&
+        v->type != DataType::IntMap) return 0;
+    v->Incref();
+    return g_handle_manager.CreateHandle(new DataHandle(v), HANDLE_JSON_VALUE, pContext);
+}
+
 // Object setters
 static cell_t Native_JsonSetString(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
@@ -1209,6 +1286,12 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_IntMapIterNext",           Native_IntMapIterNext},
     {"async2_IntMapIterNext64",         Native_IntMapIterNext64},
     {"async2_IterClose",                Native_IterClose},
+    {"async2_IterGetType",              Native_IterGetType},
+    {"async2_IterGetInt",               Native_IterGetInt},
+    {"async2_IterGetFloat",             Native_IterGetFloat},
+    {"async2_IterGetBool",              Native_IterGetBool},
+    {"async2_IterGetString",            Native_IterGetString},
+    {"async2_IterGetObject",            Native_IterGetObject},
     {"async2_JsonSetString",            Native_JsonSetString},
     {"async2_JsonSetInt",               Native_JsonSetInt},
     {"async2_JsonSetInt64",             Native_JsonSetInt64},

@@ -134,7 +134,7 @@ Shared: `GET_HTTP_REQUEST()` macro + `extern HandleManager g_handle_manager` in 
 - **Iterator handles**: `Iterator.FromObject(obj)` / `Iterator.FromIntMap(map)` create standalone `HANDLE_ITERATOR` handles. `iter.Next(key, maxlen)` / `iter.NextInt(key)` / `iter.NextInt64(key)`. Must call `iter.Close()`. Multiple concurrent iterators on the same container are supported. Don't add/remove keys while iterating.
 - TCP options 0-3 set before connect/listen, 4-5 (buffer sizes) any time. UDP options 0-1 before bind, 2-3 any time.
 - DNS natives only affect TCP/UDP — HTTP DNS managed by curl separately.
-- **Capability detection**: Use `async2_GetVersion()` native (returns API version int, see `API_VERSIONS.md`). `GetFeatureStatus(FeatureType_Native, ...)` does NOT work for extension natives — only for plugin-created natives via `CreateNative`. Do not use `IFeatureProvider`/`AddCapabilityProvider` or `LibraryExists` for version checks.
+- **Capability detection**: Use `async2_GetVersion()` native (returns API version int, see `__ext_async2_SetNTVOptional` in `async2.inc` for version history). `GetFeatureStatus(FeatureType_Native, ...)` does NOT work for extension natives — only for plugin-created natives via `CreateNative`. Do not use `IFeatureProvider`/`AddCapabilityProvider` or `LibraryExists` for version checks.
 
 ## Conventions
 

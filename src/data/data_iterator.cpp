@@ -34,12 +34,14 @@ bool DataIterator::Next() {
         if (obj_iter_ == node_->obj.end())
             return false;
         obj_key_ = obj_iter_->first.c_str();
+        value_ = obj_iter_->second;
         ++obj_iter_;
         return true;
     } else {
         if (intmap_iter_ == node_->intmap.end())
             return false;
         intmap_key_ = intmap_iter_->first;
+        value_ = intmap_iter_->second;
         ++intmap_iter_;
         return true;
     }

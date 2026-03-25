@@ -307,6 +307,26 @@ methodmap WebRequest __nullable__ {
         return async2_PostJson(url, json, cb, userdata);
     }
 
+    public static WebRequest GetJson(const char[] url, WebCallback cb, any userdata = 0) {
+        WebRequest request = async2_HttpNew(userdata);
+        if (request) {
+            async2_SetResponseType(request, RESPONSE_JSON);
+            async2_HttpExecute(request, "GET", url, cb);
+        }
+        return request;
+    }
+
+    public static WebRequest PostJsonResponse(const char[] url, Json &json, WebCallback cb, any userdata = 0) {
+        WebRequest request = async2_HttpNew(userdata);
+        if (request) {
+            async2_SetBodyJSON(request, json);
+            async2_SetResponseType(request, RESPONSE_JSON);
+            async2_HttpExecute(request, "POST", url, cb);
+        }
+        json = null;
+        return request;
+    }
+
     public void SetBody(const char[] data, int length) {
         async2_SetBody(this, data, length);
     }

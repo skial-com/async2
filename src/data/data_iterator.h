@@ -17,6 +17,7 @@ public:
     bool Next();
     const char* ObjectKey() const;
     int64_t IntMapKey() const;
+    DataNode* Value() const { return value_; }
     IteratorType Type() const { return type_; }
 
 private:
@@ -31,6 +32,7 @@ private:
     };
     const char* obj_key_ = nullptr;
     int64_t intmap_key_ = 0;
+    DataNode* value_ = nullptr;
 };
 
 #endif
