@@ -568,6 +568,7 @@ static cell_t Native_IterGetString(IPluginContext* pContext, const cell_t* param
     DataNode* v = iter->Value();
     if (v->type == DataType::String) {
         pContext->StringToLocal(params[2], params[3], v->str_val.c_str());
+        return 0;
     }
     pContext->StringToLocal(params[2], params[3], "");
     return 0;

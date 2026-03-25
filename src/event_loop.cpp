@@ -697,10 +697,14 @@ void EventLoop::OnRetryTimer(uv_timer_t* handle) {
 
     request->in_retry_wait = false;
 
-    // If cancelled during retry wait, send to done_queue
+    // If cancelled during retry wait, send to done_queue.
+    // Must erase from active_http_requests_ so OnAsyncCancel (which fires
+    // after timers in the same event loop iteration) won't double-push.
     if (request->handle_closed) {
         request->completed = true;
         request->OnCompleted();
+        self->stats_completed.fetch_add(1, std::memory_order_relaxed);
+        self->active_http_requests_.erase(request);
         self->done_queue.Lock();
         self->done_queue.Push(request);
         self->done_queue.Unlock();
