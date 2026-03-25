@@ -44,7 +44,7 @@ native int async2_IntObjectSetInt(Json handle, int key, int value);
 native int async2_IntObjectSetFloat(Json handle, int key, float value);
 native int async2_IntObjectSetBool(Json handle, int key, bool value);
 native int async2_IntObjectSetNull(Json handle, int key);
-// Inserts the child into this intmap under key. The child handle is consumed (see JsonSetObject).
+// Inserts the child into this intmap under key (shallow). The child handle is consumed (see JsonSetObject).
 native int async2_IntObjectSetObject(Json handle, int key, Json child);
 
 // 64-bit key setters
@@ -54,7 +54,7 @@ native int async2_IntObject64SetInt64(Json handle, int key[2], int val[2]);
 native int async2_IntObject64SetFloat(Json handle, int key[2], float value);
 native int async2_IntObject64SetBool(Json handle, int key[2], bool value);
 native int async2_IntObject64SetNull(Json handle, int key[2]);
-// Inserts the child into this intmap under key. The child handle is consumed (see JsonSetObject).
+// Inserts the child into this intmap under key (shallow). The child handle is consumed (see JsonSetObject).
 native int async2_IntObject64SetObject(Json handle, int key[2], Json child);
 
 // Mutation

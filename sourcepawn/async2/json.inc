@@ -119,8 +119,9 @@ native int async2_JsonSetFloat(Json jsonHandle, const char[] key, float value);
 native int async2_JsonSetBool(Json jsonHandle, const char[] key, bool value);
 native int async2_JsonSetNull(Json jsonHandle, const char[] key);
 
-// Inserts the child into this object under key. The child handle is consumed (freed).
-// Close() after is a safe no-op. Use SetObject(key, child.Copy()) to keep the child.
+// Inserts the child into this object under key (shallow — no deep copy).
+// The child handle is consumed (freed). Close() after is a safe no-op.
+// Use SetObject(key, child.Copy()) to keep the child.
 // Self-insert (same handle as parent and child) is a no-op.
 native int async2_JsonSetObject(Json jsonHandle, const char[] key, Json childHandle);
 
@@ -150,7 +151,7 @@ native int async2_JsonArraySetInt64(Json jsonHandle, int index, int val[2]);
 native int async2_JsonArraySetFloat(Json jsonHandle, int index, float value);
 native int async2_JsonArraySetBool(Json jsonHandle, int index, bool value);
 native int async2_JsonArraySetNull(Json jsonHandle, int index);
-// Replaces an array element with the child. The child handle is consumed (see SetObject).
+// Replaces an array element with the child (shallow). The child handle is consumed (see SetObject).
 native int async2_JsonArraySetObject(Json jsonHandle, int index, Json childHandle);
 
 // Removes all elements from an array.
@@ -169,7 +170,7 @@ native int async2_JsonArrayAppendInt64(Json jsonHandle, int val[2]);
 native int async2_JsonArrayAppendFloat(Json jsonHandle, float value);
 native int async2_JsonArrayAppendBool(Json jsonHandle, bool value);
 native int async2_JsonArrayAppendNull(Json jsonHandle);
-// Appends the child to this array. The child handle is consumed (see SetObject).
+// Appends the child to this array (shallow). The child handle is consumed (see SetObject).
 native int async2_JsonArrayAppendObject(Json jsonHandle, Json childHandle);
 
 // Recursively compares two JSON values for equality.
