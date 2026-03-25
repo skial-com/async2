@@ -445,6 +445,10 @@ void EventLoop::OnAsyncAdd(uv_async_t* handle) {
         if (req->handle_closed) {
             // Closed before we picked it up — never added to curl_multi
             req->completed = true;
+            if (req->body_node) {
+                DataNode::Decref(req->body_node);
+                req->body_node = nullptr;
+            }
             req->OnCompleted();
             self->stats_completed.fetch_add(1, std::memory_order_relaxed);
             self->active_http_requests_.erase(req);
