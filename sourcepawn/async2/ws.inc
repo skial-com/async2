@@ -277,14 +277,12 @@ methodmap WsSocket __nullable__ {
 
     public int SendJson(Json &data) {
         int ret = async2_WsSendJson(this, data);
-        if (!Async2_HandlesAutoConsumed()) data.Close();
         data = null;
         return ret;
     }
 
     public int SendMsgPack(Json &data) {
         int ret = async2_WsSendMsgPack(this, data);
-        if (!Async2_HandlesAutoConsumed()) data.Close();
         data = null;
         return ret;
     }

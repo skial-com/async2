@@ -71,28 +71,45 @@ async2_JsonPathGetInt(json, "foo", "bar", 3, "baz"); // json["foo"]["bar"][3]["b
 
 ## Quick Start
 
-### HTTP GET with JSON parsing
+### HTTP GET
 
 ```sourcepawn
 #include <async2>
 
 public void OnPluginStart()
 {
-    WebRequest req = async2_New();
-    req.SetResponseType(RESPONSE_JSON);  // parse JSON on background thread
+    WebRequest req = async2_HttpNew();
     req.Execute("GET", "https://api.example.com/player/123", OnResponse);
 }
 
-void OnResponse(WebRequest req, int curlcode, int httpcode, Json data)
+void OnResponse(WebRequest req, int curlcode, int httpcode, int size)
 {
     if (curlcode != 0) {
-        char error[256];
-        async2_ErrorString(curlcode, error, sizeof(error));
+        char error[CURL_ERROR_SIZE];
+        req.GetErrorMessage(error, sizeof(error));
         PrintToServer("Error: %s", error);
         return;
     }
 
-    if (data == null) return;
+    char body[4096];
+    req.GetString(body, sizeof(body));
+    PrintToServer("Response (%d): %s", httpcode, body);
+}
+```
+
+### HTTP GET with JSON parsing
+
+```sourcepawn
+public void OnPluginStart()
+{
+    WebRequest req = async2_HttpNew();
+    req.SetResponseType(RESPONSE_JSON);  // parse JSON on background thread
+    req.Execute("GET", "https://api.example.com/player/123", OnJsonResponse);
+}
+
+void OnJsonResponse(WebRequest req, int curlcode, int httpcode, Json data)
+{
+    if (curlcode != 0 || data == null) return;
 
     // Deep path access — no intermediate handles needed
     char name[64];
@@ -107,10 +124,10 @@ void OnResponse(WebRequest req, int curlcode, int httpcode, Json data)
 ### HTTP POST with JSON body
 
 ```sourcepawn
-WebRequest req = async2_New();
+WebRequest req = async2_HttpNew();
 req.SetHeader("Authorization", "Bearer my-token");
 
-Json body = async2_JsonCreateObject();
+Json body = Json.CreateObject();
 body.SetString("action", "ban");
 body.SetInt("duration", 3600);
 req.SetBodyJSON(body);  // consumes body — handle is freed, Close() is optional (safe no-op)
@@ -122,14 +139,14 @@ req.Execute("POST", "https://api.example.com/admin", OnResponse);
 
 ```sourcepawn
 // Create and build
-Json obj = async2_JsonCreateObject();
+Json obj = Json.CreateObject();
 obj.SetString("name", "player");
 obj.SetInt("score", 100);
 
-Json items = async2_JsonCreateArray();
-items.PushInt(1);
-items.PushInt(2);
-items.PushInt(3);
+Json items = Json.CreateArray();
+items.ArrayAppendInt(1);
+items.ArrayAppendInt(2);
+items.ArrayAppendInt(3);
 obj.SetObject("items", items);  // consumes items — handle is freed, Close() is optional
 // SetObject/ArrayAppendObject consume the child handle. No deep copy.
 // If you need the child afterward, use .Copy():

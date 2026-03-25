@@ -278,7 +278,6 @@ stock WebRequest async2_PostJson(const char[] url, Json &jsonHandle, WebCallback
         async2_SetBodyJSON(request, jsonHandle);
         async2_HttpExecute(request, "POST", url, callback);
     }
-    if (!Async2_HandlesAutoConsumed()) async2_JsonClose(jsonHandle);
     jsonHandle = null;
     return request;
 }
@@ -318,13 +317,11 @@ methodmap WebRequest __nullable__ {
 
     public void SetBodyJSON(Json &json) {
         async2_SetBodyJSON(this, json);
-        if (!Async2_HandlesAutoConsumed()) json.Close();
         json = null;
     }
 
     public void SetBodyMsgPack(Json &json) {
         async2_SetBodyMsgPack(this, json);
-        if (!Async2_HandlesAutoConsumed()) json.Close();
         json = null;
     }
 

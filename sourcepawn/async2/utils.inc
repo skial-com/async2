@@ -15,17 +15,6 @@
  */
 native int async2_GetVersion();
 
-// API version >= 2: SetBodyJSON/SetBodyMsgPack/SetObject/etc. consume the handle
-stock bool Async2_HandlesAutoConsumed() {
-    static bool checked, result;
-    if (!checked) {
-        checked = true;
-        result = GetFeatureStatus(FeatureType_Native, "async2_GetVersion") == FeatureStatus_Available
-              && async2_GetVersion() >= 2;
-    }
-    return result;
-}
-
 /**
  * Returns the current time as Unix epoch milliseconds (int64).
  *

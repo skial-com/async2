@@ -383,7 +383,6 @@ methodmap Json __nullable__ {
 
     public void SetObject(const char[] key, Json &child) {
         async2_JsonSetObject(this, key, child);
-        if (!Async2_HandlesAutoConsumed()) child.Close();
         child = null;
     }
 
@@ -439,7 +438,6 @@ methodmap Json __nullable__ {
 
     public void ArraySetObject(int index, Json &child) {
         async2_JsonArraySetObject(this, index, child);
-        if (!Async2_HandlesAutoConsumed()) child.Close();
         child = null;
     }
 
@@ -481,7 +479,6 @@ methodmap Json __nullable__ {
 
     public void ArrayAppendObject(Json &child) {
         async2_JsonArrayAppendObject(this, child);
-        if (!Async2_HandlesAutoConsumed()) child.Close();
         child = null;
     }
 
