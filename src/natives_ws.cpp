@@ -227,12 +227,7 @@ static cell_t WsSendNode(const cell_t* params, WsOpType type) {
     DataHandle* dh = g_handle_manager.GetDataHandle(params[2]);
     if (!dh || !dh->node) return 2;
 
-    DataNode* node = dh->node;
-    if (node->refcount.load(std::memory_order_relaxed) == 1) {
-        dh->node = nullptr;
-    } else {
-        node = node->DeepCopy();
-    }
+    DataNode* node = StealOrCopyNode(dh);
 
     auto* op = new WsOp();
     op->type = type;

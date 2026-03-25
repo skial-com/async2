@@ -113,16 +113,7 @@ static cell_t Native_SetBodyJSON(IPluginContext* pContext, const cell_t* params)
     if (!json || !json->node)
         return 2;
 
-    DataNode* node = json->node;
-    if (node->refcount.load(std::memory_order_relaxed) == 1) {
-        json->node = nullptr;  // steal — prevent Decref in destructor
-    } else {
-        node = node->DeepCopy();  // shared — deep copy for safety
-    }
-    request->post_body.clear();
-    if (request->body_node) DataNode::Decref(request->body_node);
-    request->body_node = node;
-    request->body_format = BodyFormat::JSON;
+    request->SetBodyNode(StealOrCopyNode(json), BodyFormat::JSON);
     request->SetHeader("Content-Type", "application/json");
     g_handle_manager.FreeHandle(params[2]);
     return 0;

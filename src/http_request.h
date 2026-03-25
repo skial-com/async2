@@ -67,6 +67,7 @@ public:
     void RemoveHeader(const char* key);
     void ClearHeaders();
     void SetBody(const char* data, size_t length);
+    void SetBodyNode(DataNode* node, BodyFormat fmt);
     void SetBodyString(const char* str);
     void PrepareForSend();
     void SetupCurl();

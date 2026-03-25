@@ -109,6 +109,13 @@ void HttpRequest::SetBody(const char* data, size_t length) {
     post_body.assign(data, length);
 }
 
+void HttpRequest::SetBodyNode(DataNode* node, BodyFormat fmt) {
+    post_body.clear();
+    if (body_node) DataNode::Decref(body_node);
+    body_node = node;
+    body_format = fmt;
+}
+
 void HttpRequest::SetBodyString(const char* str) {
     size_t len = strlen(str);
     SetBody(str, len);

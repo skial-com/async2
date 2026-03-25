@@ -106,4 +106,16 @@ public:
     std::string SerializeToString(bool pretty = false) const;
 };
 
+// Steal the node if sole owner (refcount==1), otherwise DeepCopy.
+// Clears dh->node so the DataHandle destructor won't Decref.
+inline DataNode* StealOrCopyNode(DataHandle* dh) {
+    DataNode* node = dh->node;
+    if (node->refcount.load(std::memory_order_relaxed) == 1) {
+        dh->node = nullptr;
+    } else {
+        node = node->DeepCopy();
+    }
+    return node;
+}
+
 #endif
