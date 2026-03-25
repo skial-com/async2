@@ -127,42 +127,6 @@ void DataNode::Decref(DataNode* node) {
     g_pool.Free(node);
 }
 
-// ---------- StealFrom ----------
-// Moves contents from src into a new node, leaving src as Null (safe to Decref).
-
-DataNode* DataNode::StealFrom(DataNode* src) {
-    auto* dst = new (g_pool.Alloc()) DataNode();
-    dst->type = src->type;
-    switch (src->type) {
-        case DataType::String:
-            new (&dst->str_val) std::string(std::move(src->str_val));
-            src->str_val.~basic_string();
-            break;
-        case DataType::Array:
-            new (&dst->arr) std::vector<DataNode*>(std::move(src->arr));
-            src->arr.~vector();
-            break;
-        case DataType::Object:
-            new (&dst->obj) DataMap<std::string, DataNode*>(std::move(src->obj));
-            { using ObjMap = DataMap<std::string, DataNode*>; src->obj.~ObjMap(); }
-            break;
-        case DataType::IntMap:
-            new (&dst->intmap) DataMap<int64_t, DataNode*>(std::move(src->intmap));
-            { using IntMapType = DataMap<int64_t, DataNode*>; src->intmap.~IntMapType(); }
-            break;
-        case DataType::Binary:
-            new (&dst->bin) std::vector<uint8_t>(std::move(src->bin));
-            src->bin.~vector();
-            break;
-        default:
-            dst->int_val = src->int_val;
-            break;
-    }
-    src->type = DataType::Null;
-    src->int_val = 0;
-    return dst;
-}
-
 // ---------- DeepCopy ----------
 
 DataNode* DataNode::DeepCopy() const {

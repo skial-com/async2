@@ -61,7 +61,6 @@ struct DataNode {
     static void Decref(DataNode* node);
 
     DataNode* DeepCopy() const;
-    static DataNode* StealFrom(DataNode* src);
     bool Equals(const DataNode* other) const;
     size_t EstimateBytes() const;
 
