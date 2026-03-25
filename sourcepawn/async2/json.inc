@@ -121,7 +121,7 @@ native int async2_JsonSetNull(Json jsonHandle, const char[] key);
 
 // Inserts the child into this object under key (shallow — no deep copy).
 // The child handle is consumed (freed). Close() after is a safe no-op.
-// To keep the original, copy first: Json copy = child.Copy(); obj.SetObject(key, copy);
+// To keep the original: obj.SetObject(key, child, true);
 // Self-insert (same handle as parent and child) is a no-op.
 native int async2_JsonSetObject(Json jsonHandle, const char[] key, Json childHandle);
 
@@ -382,9 +382,14 @@ methodmap Json __nullable__ {
         async2_JsonSetNull(this, key);
     }
 
-    public void SetObject(const char[] key, Json &child) {
-        async2_JsonSetObject(this, key, child);
-        child = null;
+    public void SetObject(const char[] key, Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonSetObject(this, key, dup);
+        } else {
+            async2_JsonSetObject(this, key, child);
+            child = null;
+        }
     }
 
     public bool RemoveKey(const char[] key) {
@@ -437,9 +442,14 @@ methodmap Json __nullable__ {
         async2_JsonArraySetNull(this, index);
     }
 
-    public void ArraySetObject(int index, Json &child) {
-        async2_JsonArraySetObject(this, index, child);
-        child = null;
+    public void ArraySetObject(int index, Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonArraySetObject(this, index, dup);
+        } else {
+            async2_JsonArraySetObject(this, index, child);
+            child = null;
+        }
     }
 
     public void ArrayClear() {
@@ -478,9 +488,14 @@ methodmap Json __nullable__ {
         async2_JsonArrayAppendNull(this);
     }
 
-    public void ArrayAppendObject(Json &child) {
-        async2_JsonArrayAppendObject(this, child);
-        child = null;
+    public void ArrayAppendObject(Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonArrayAppendObject(this, dup);
+        } else {
+            async2_JsonArrayAppendObject(this, child);
+            child = null;
+        }
     }
 
     public bool Equals(Json other) {

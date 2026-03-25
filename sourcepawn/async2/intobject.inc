@@ -130,9 +130,14 @@ methodmap IntObject < Json {
         async2_IntObjectSetNull(this, key);
     }
 
-    public void SetObject(int key, Json &child) {
-        async2_IntObjectSetObject(this, key, child);
-        child = null;
+    public void SetObject(int key, Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_IntObjectSetObject(this, key, dup);
+        } else {
+            async2_IntObjectSetObject(this, key, child);
+            child = null;
+        }
     }
 
     public bool RemoveKey(int key) {
@@ -208,9 +213,14 @@ methodmap IntObject < Json {
         async2_IntObject64SetNull(this, key);
     }
 
-    public void SetObject64(int key[2], Json &child) {
-        async2_IntObject64SetObject(this, key, child);
-        child = null;
+    public void SetObject64(int key[2], Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_IntObject64SetObject(this, key, dup);
+        } else {
+            async2_IntObject64SetObject(this, key, child);
+            child = null;
+        }
     }
 
     public bool RemoveKey64(int key[2]) {
