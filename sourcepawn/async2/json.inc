@@ -121,7 +121,7 @@ native int async2_JsonSetNull(Json jsonHandle, const char[] key);
 
 // Inserts the child into this object under key (shallow — no deep copy).
 // The child handle is consumed (freed). Close() after is a safe no-op.
-// Use SetObject(key, child.Copy()) to keep the child.
+// To keep the original, copy first: Json copy = child.Copy(); obj.SetObject(key, copy);
 // Self-insert (same handle as parent and child) is a no-op.
 native int async2_JsonSetObject(Json jsonHandle, const char[] key, Json childHandle);
 

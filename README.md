@@ -149,8 +149,9 @@ items.ArrayAppendInt(2);
 items.ArrayAppendInt(3);
 obj.SetObject("items", items);  // consumes items — handle is freed, Close() is optional
 // SetObject/ArrayAppendObject consume the child handle. No deep copy.
-// If you need the child afterward, use .Copy():
-//   parent.SetObject("a", child.Copy());  // deep copy, original stays valid
+// If you need the child afterward, copy first:
+//   Json copy = child.Copy();
+//   parent.SetObject("a", copy);  // deep copy, original stays valid
 //   parent.SetObject("b", child);         // consumes child
 
 char buf[256];
