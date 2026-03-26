@@ -230,7 +230,7 @@ static cell_t WsSendNode(const cell_t* params, WsOpType type) {
     DataHandle* dh = g_handle_manager.GetDataHandle(params[2]);
     if (!dh || !dh->node) return 2;
 
-    DataNode* node = StealOrCopyNode(dh);
+    DataNode* node = CopyNodeForSend(dh);
 
     auto* op = new WsOp();
     op->type = type;

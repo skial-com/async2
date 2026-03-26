@@ -123,16 +123,10 @@ inline Async2DataType NodeToType(const DataNode* n) {
     return JSON_TYPE_NONE;
 }
 
-// Steal the node if sole owner (refcount==1), otherwise DeepCopy.
-// Clears dh->node so the DataHandle destructor won't Decref.
-inline DataNode* StealOrCopyNode(DataHandle* dh) {
-    DataNode* node = dh->node;
-    if (node->refcount.load(std::memory_order_relaxed) == 1) {
-        dh->node = nullptr;
-    } else {
-        node = node->DeepCopy();
-    }
-    return node;
+// DeepCopy the node tree for handoff to the event thread.
+// Always copies to avoid races when a child node is shared via JsonRef/GetObject.
+inline DataNode* CopyNodeForSend(DataHandle* dh) {
+    return dh->node->DeepCopy();
 }
 
 #endif
