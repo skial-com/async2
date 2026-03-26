@@ -158,4 +158,7 @@ public void __ext_async2_SetNTVOptional()
     MarkNativeAsOptional("async2_IterGetBool");
     MarkNativeAsOptional("async2_IterGetString");
     MarkNativeAsOptional("async2_IterGetObject");
+
+    // API version 4: SetBodyJSON/SetBodyMsgPack/WsSendJson/WsSendMsgPack
+    // always DeepCopy (no new natives, behavior change only)
 }

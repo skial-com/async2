@@ -12,7 +12,7 @@
 // ===== Version =============================================================
 
 // Bump when the include needs to detect new runtime behavior.
-#define ASYNC2_API_VERSION 3
+#define ASYNC2_API_VERSION 4
 
 static cell_t Native_GetVersion(IPluginContext*, const cell_t*) {
     return ASYNC2_API_VERSION;
