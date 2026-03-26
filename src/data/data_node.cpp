@@ -61,14 +61,14 @@ DataNode* DataNode::MakeArray() {
 DataNode* DataNode::MakeObject() {
     auto* n = new (g_pool.Alloc()) DataNode();
     n->type = DataType::Object;
-    new (&n->obj) DataMap<std::string, DataNode*>();
+    n->obj_ptr = new DataMap<std::string, DataNode*>();
     return n;
 }
 
 DataNode* DataNode::MakeIntMap() {
     auto* n = new (g_pool.Alloc()) DataNode();
     n->type = DataType::IntMap;
-    new (&n->intmap) DataMap<int64_t, DataNode*>();
+    n->intmap_ptr = new DataMap<int64_t, DataNode*>();
     return n;
 }
 
@@ -105,16 +105,14 @@ void DataNode::Decref(DataNode* node) {
             node->arr.~vector();
             break;
         case DataType::Object:
-            for (auto& [key, val] : node->obj)
+            for (auto& [key, val] : *node->obj_ptr)
                 Decref(val);
-            using ObjMap = DataMap<std::string, DataNode*>;
-            node->obj.~ObjMap();
+            delete node->obj_ptr;
             break;
         case DataType::IntMap:
-            for (auto& [key, val] : node->intmap)
+            for (auto& [key, val] : *node->intmap_ptr)
                 Decref(val);
-            using IntMapType = DataMap<int64_t, DataNode*>;
-            node->intmap.~IntMapType();
+            delete node->intmap_ptr;
             break;
         case DataType::Binary:
             node->bin.~vector();
@@ -375,6 +373,7 @@ size_t DataNode::EstimateBytes() const {
             break;
         case DataType::Object:
             // robin_map: bucket_count entries, each holding key+value+metadata
+            bytes += sizeof(DataMap<std::string, DataNode*>);
             bytes += Obj().bucket_count() * (sizeof(std::string) + sizeof(DataNode*) + 1);
             for (const auto& [key, val] : Obj()) {
                 bytes += key.capacity();
@@ -382,6 +381,7 @@ size_t DataNode::EstimateBytes() const {
             }
             break;
         case DataType::IntMap:
+            bytes += sizeof(DataMap<int64_t, DataNode*>);
             bytes += Intmap().bucket_count() * (sizeof(int64_t) + sizeof(DataNode*) + 1);
             for (const auto& [key, val] : Intmap())
                 bytes += val->EstimateBytes();

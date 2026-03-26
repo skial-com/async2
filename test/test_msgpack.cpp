@@ -149,7 +149,7 @@ static void test_float64() {
 static void test_fixstr() {
     uint8_t data[] = {0xa5, 'h', 'e', 'l', 'l', 'o'};
     auto* n = MsgPackParse(data, 6);
-    CHECK(n && n->type == DataType::String && n->str_val == "hello", "fixstr");
+    CHECK(n && n->type == DataType::String && n->Str() == "hello", "fixstr");
     DataNode::Decref(n);
 }
 
@@ -157,22 +157,22 @@ static void test_str8() {
     // "test" as str8
     uint8_t data[] = {0xd9, 0x04, 't', 'e', 's', 't'};
     auto* n = MsgPackParse(data, 6);
-    CHECK(n && n->type == DataType::String && n->str_val == "test", "str8");
+    CHECK(n && n->type == DataType::String && n->Str() == "test", "str8");
     DataNode::Decref(n);
 }
 
 static void test_empty_str() {
     uint8_t data[] = {0xa0};
     auto* n = MsgPackParse(data, 1);
-    CHECK(n && n->type == DataType::String && n->str_val == "", "empty fixstr");
+    CHECK(n && n->type == DataType::String && n->Str() == "", "empty fixstr");
     DataNode::Decref(n);
 }
 
 static void test_bin8() {
     uint8_t data[] = {0xc4, 0x03, 0xde, 0xad, 0xbe};
     auto* n = MsgPackParse(data, 5);
-    CHECK(n && n->type == DataType::Binary && n->bin.size() == 3 &&
-          n->bin[0] == 0xde && n->bin[1] == 0xad && n->bin[2] == 0xbe, "bin8");
+    CHECK(n && n->type == DataType::Binary && n->Bin().size() == 3 &&
+          n->Bin()[0] == 0xde && n->Bin()[1] == 0xad && n->Bin()[2] == 0xbe, "bin8");
     DataNode::Decref(n);
 }
 
@@ -180,7 +180,7 @@ static void test_bin16() {
     std::vector<uint8_t> data = {0xc5, 0x01, 0x00}; // 256 bytes
     data.resize(3 + 256, 0x42);
     auto* n = MsgPackParse(data.data(), data.size());
-    CHECK(n && n->type == DataType::Binary && n->bin.size() == 256, "bin16");
+    CHECK(n && n->type == DataType::Binary && n->Bin().size() == 256, "bin16");
     DataNode::Decref(n);
 }
 
@@ -188,8 +188,8 @@ static void test_fixarray() {
     // [1, 2, 3]
     uint8_t data[] = {0x93, 0x01, 0x02, 0x03};
     auto* n = MsgPackParse(data, 4);
-    CHECK(n && n->type == DataType::Array && n->arr.size() == 3 &&
-          n->arr[0]->int_val == 1 && n->arr[1]->int_val == 2 && n->arr[2]->int_val == 3,
+    CHECK(n && n->type == DataType::Array && n->Arr().size() == 3 &&
+          n->Arr()[0]->int_val == 1 && n->Arr()[1]->int_val == 2 && n->Arr()[2]->int_val == 3,
           "fixarray");
     DataNode::Decref(n);
 }
@@ -197,7 +197,7 @@ static void test_fixarray() {
 static void test_empty_array() {
     uint8_t data[] = {0x90};
     auto* n = MsgPackParse(data, 1);
-    CHECK(n && n->type == DataType::Array && n->arr.empty(), "empty array");
+    CHECK(n && n->type == DataType::Array && n->Arr().empty(), "empty array");
     DataNode::Decref(n);
 }
 
@@ -225,7 +225,7 @@ static void test_int_key_map() {
     CHECK(n && n->type == DataType::IntMap, "int key map parsed as IntMap");
     if (n) {
         auto* val = n->IntMapFind(1);
-        CHECK(val && val->type == DataType::String && val->str_val == "value",
+        CHECK(val && val->type == DataType::String && val->Str() == "value",
               "int key map value");
     }
     DataNode::Decref(n);
@@ -314,7 +314,7 @@ static void test_roundtrip_string() {
         auto* parsed = MsgPackParse(buf.data(), buf.size());
         char name[128];
         snprintf(name, sizeof(name), "roundtrip string \"%s\"", s);
-        CHECK(parsed && parsed->type == DataType::String && parsed->str_val == s, name);
+        CHECK(parsed && parsed->type == DataType::String && parsed->Str() == s, name);
         DataNode::Decref(n);
         DataNode::Decref(parsed);
     }
@@ -325,8 +325,8 @@ static void test_roundtrip_binary() {
     auto* n = DataNode::MakeBinary(bin_data, 5);
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::Binary && parsed->bin.size() == 5 &&
-          memcmp(parsed->bin.data(), bin_data, 5) == 0, "roundtrip binary");
+    CHECK(parsed && parsed->type == DataType::Binary && parsed->Bin().size() == 5 &&
+          memcmp(parsed->Bin().data(), bin_data, 5) == 0, "roundtrip binary");
     DataNode::Decref(n);
     DataNode::Decref(parsed);
 }
@@ -335,25 +335,25 @@ static void test_roundtrip_empty_binary() {
     auto* n = DataNode::MakeBinary(nullptr, 0);
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::Binary && parsed->bin.empty(), "roundtrip empty binary");
+    CHECK(parsed && parsed->type == DataType::Binary && parsed->Bin().empty(), "roundtrip empty binary");
     DataNode::Decref(n);
     DataNode::Decref(parsed);
 }
 
 static void test_roundtrip_array() {
     auto* arr = DataNode::MakeArray();
-    arr->arr.push_back(DataNode::MakeInt(1));
-    arr->arr.push_back(DataNode::MakeString("two"));
-    arr->arr.push_back(DataNode::MakeBool(true));
-    arr->arr.push_back(DataNode::MakeNull());
+    arr->Arr().push_back(DataNode::MakeInt(1));
+    arr->Arr().push_back(DataNode::MakeString("two"));
+    arr->Arr().push_back(DataNode::MakeBool(true));
+    arr->Arr().push_back(DataNode::MakeNull());
 
     auto buf = MsgPackSerialize(*arr);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::Array && parsed->arr.size() == 4, "roundtrip array size");
-    CHECK(parsed && parsed->arr[0]->int_val == 1, "roundtrip array[0]");
-    CHECK(parsed && parsed->arr[1]->str_val == "two", "roundtrip array[1]");
-    CHECK(parsed && parsed->arr[2]->bool_val == true, "roundtrip array[2]");
-    CHECK(parsed && parsed->arr[3]->type == DataType::Null, "roundtrip array[3]");
+    CHECK(parsed && parsed->type == DataType::Array && parsed->Arr().size() == 4, "roundtrip array size");
+    CHECK(parsed && parsed->Arr()[0]->int_val == 1, "roundtrip array[0]");
+    CHECK(parsed && parsed->Arr()[1]->Str() == "two", "roundtrip array[1]");
+    CHECK(parsed && parsed->Arr()[2]->bool_val == true, "roundtrip array[2]");
+    CHECK(parsed && parsed->Arr()[3]->type == DataType::Null, "roundtrip array[3]");
     DataNode::Decref(arr);
     DataNode::Decref(parsed);
 }
@@ -370,7 +370,7 @@ static void test_roundtrip_object() {
     auto* name = parsed ? parsed->ObjFind("name") : nullptr;
     auto* count = parsed ? parsed->ObjFind("count") : nullptr;
     auto* active = parsed ? parsed->ObjFind("active") : nullptr;
-    CHECK(name && name->str_val == "test", "roundtrip object name");
+    CHECK(name && name->Str() == "test", "roundtrip object name");
     CHECK(count && count->int_val == 42, "roundtrip object count");
     CHECK(active && active->bool_val == true, "roundtrip object active");
     DataNode::Decref(obj);
@@ -380,8 +380,8 @@ static void test_roundtrip_object() {
 static void test_roundtrip_nested() {
     auto* obj = DataNode::MakeObject();
     auto* inner = DataNode::MakeArray();
-    inner->arr.push_back(DataNode::MakeInt(1));
-    inner->arr.push_back(DataNode::MakeInt(2));
+    inner->Arr().push_back(DataNode::MakeInt(1));
+    inner->Arr().push_back(DataNode::MakeInt(2));
     obj->ObjInsert("items", inner);
     obj->ObjInsert("meta", DataNode::MakeString("info"));
 
@@ -389,7 +389,7 @@ static void test_roundtrip_nested() {
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->type == DataType::Object, "roundtrip nested type");
     auto* items = parsed ? parsed->ObjFind("items") : nullptr;
-    CHECK(items && items->type == DataType::Array && items->arr.size() == 2, "roundtrip nested items");
+    CHECK(items && items->type == DataType::Array && items->Arr().size() == 2, "roundtrip nested items");
     DataNode::Decref(obj);
     DataNode::Decref(parsed);
 }
@@ -397,15 +397,15 @@ static void test_roundtrip_nested() {
 static void test_roundtrip_large_array() {
     auto* arr = DataNode::MakeArray();
     for (int i = 0; i < 100; i++)
-        arr->arr.push_back(DataNode::MakeInt(i));
+        arr->Arr().push_back(DataNode::MakeInt(i));
 
     auto buf = MsgPackSerialize(*arr);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::Array && parsed->arr.size() == 100, "roundtrip large array");
+    CHECK(parsed && parsed->type == DataType::Array && parsed->Arr().size() == 100, "roundtrip large array");
     bool all_ok = true;
     if (parsed) {
         for (int i = 0; i < 100; i++) {
-            if (parsed->arr[i]->int_val != i) { all_ok = false; break; }
+            if (parsed->Arr()[i]->int_val != i) { all_ok = false; break; }
         }
     }
     CHECK(all_ok, "roundtrip large array values");
@@ -418,7 +418,7 @@ static void test_roundtrip_long_string() {
     auto* n = DataNode::MakeString(s.c_str());
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::String && parsed->str_val == s, "roundtrip long string");
+    CHECK(parsed && parsed->type == DataType::String && parsed->Str() == s, "roundtrip long string");
     DataNode::Decref(n);
     DataNode::Decref(parsed);
 }
@@ -474,7 +474,7 @@ static void test_intmap_insert_find() {
     auto* v1 = n->IntMapFind(1);
     CHECK(v1 && v1->type == DataType::Int && v1->int_val == 100, "intmap find 1");
     auto* v2 = n->IntMapFind(2);
-    CHECK(v2 && v2->type == DataType::String && v2->str_val == "hello", "intmap find 2");
+    CHECK(v2 && v2->type == DataType::String && v2->Str() == "hello", "intmap find 2");
     auto* vm1 = n->IntMapFind(-1);
     CHECK(vm1 && vm1->type == DataType::Bool && vm1->bool_val == true, "intmap find -1");
     auto* v0 = n->IntMapFind(0);
@@ -555,16 +555,16 @@ static void test_intmap_deepcopy() {
     n->IntMapInsert(1, DataNode::MakeInt(100));
     n->IntMapInsert(2, DataNode::MakeString("hello"));
     auto* inner = DataNode::MakeArray();
-    inner->arr.push_back(DataNode::MakeInt(42));
+    inner->Arr().push_back(DataNode::MakeInt(42));
     n->IntMapInsert(3, inner);
 
     auto* copy = n->DeepCopy();
     CHECK(copy && copy->type == DataType::IntMap, "intmap deepcopy type");
     CHECK(copy->IntMapSize() == 3, "intmap deepcopy size");
     CHECK(copy->IntMapFind(1)->int_val == 100, "intmap deepcopy val 1");
-    CHECK(copy->IntMapFind(2)->str_val == "hello", "intmap deepcopy val 2");
+    CHECK(copy->IntMapFind(2)->Str() == "hello", "intmap deepcopy val 2");
     auto* arr = copy->IntMapFind(3);
-    CHECK(arr && arr->type == DataType::Array && arr->arr.size() == 1, "intmap deepcopy val 3");
+    CHECK(arr && arr->type == DataType::Array && arr->Arr().size() == 1, "intmap deepcopy val 3");
 
     // Mutate original — copy unaffected
     n->IntMapInsert(1, DataNode::MakeInt(999));
@@ -643,7 +643,7 @@ static void test_intmap_msgpack_roundtrip() {
     CHECK(parsed->IntMapSize() == 3, "intmap msgpack roundtrip size");
 
     auto* v1 = parsed->IntMapFind(1);
-    CHECK(v1 && v1->type == DataType::String && v1->str_val == "one", "intmap msgpack roundtrip val 1");
+    CHECK(v1 && v1->type == DataType::String && v1->Str() == "one", "intmap msgpack roundtrip val 1");
     auto* v2 = parsed->IntMapFind(2);
     CHECK(v2 && v2->type == DataType::Int && v2->int_val == 200, "intmap msgpack roundtrip val 2");
     auto* vm1 = parsed->IntMapFind(-1);
@@ -705,13 +705,13 @@ static void test_intmap_as_value() {
     auto* arr = DataNode::MakeArray();
     auto* inner = DataNode::MakeIntMap();
     inner->IntMapInsert(1, DataNode::MakeInt(42));
-    arr->arr.push_back(inner);
+    arr->Arr().push_back(inner);
 
     auto buf = MsgPackSerialize(*arr);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
-    CHECK(parsed && parsed->type == DataType::Array && parsed->arr.size() == 1, "intmap in array parse");
-    CHECK(parsed->arr[0]->type == DataType::IntMap, "intmap in array type");
-    CHECK(parsed->arr[0]->IntMapFind(1)->int_val == 42, "intmap in array value");
+    CHECK(parsed && parsed->type == DataType::Array && parsed->Arr().size() == 1, "intmap in array parse");
+    CHECK(parsed->Arr()[0]->type == DataType::IntMap, "intmap in array type");
+    CHECK(parsed->Arr()[0]->IntMapFind(1)->int_val == 42, "intmap in array value");
 
     DataNode::Decref(arr);
     DataNode::Decref(parsed);
@@ -727,17 +727,17 @@ static void test_intmap_large_keys() {
     n->IntMapInsert(0, DataNode::MakeString("zero"));
 
     CHECK(n->IntMapSize() == 3, "intmap large keys size");
-    CHECK(n->IntMapFind(INT64_MAX)->str_val == "max", "intmap INT64_MAX");
-    CHECK(n->IntMapFind(INT64_MIN)->str_val == "min", "intmap INT64_MIN");
-    CHECK(n->IntMapFind(0)->str_val == "zero", "intmap key 0");
+    CHECK(n->IntMapFind(INT64_MAX)->Str() == "max", "intmap INT64_MAX");
+    CHECK(n->IntMapFind(INT64_MIN)->Str() == "min", "intmap INT64_MIN");
+    CHECK(n->IntMapFind(0)->Str() == "zero", "intmap key 0");
 
     // Roundtrip through msgpack
     auto buf = MsgPackSerialize(*n);
     auto* parsed = MsgPackParse(buf.data(), buf.size());
     CHECK(parsed && parsed->type == DataType::IntMap, "intmap large keys roundtrip type");
     CHECK(parsed->IntMapSize() == 3, "intmap large keys roundtrip size");
-    CHECK(parsed->IntMapFind(INT64_MAX)->str_val == "max", "intmap large keys roundtrip max");
-    CHECK(parsed->IntMapFind(INT64_MIN)->str_val == "min", "intmap large keys roundtrip min");
+    CHECK(parsed->IntMapFind(INT64_MAX)->Str() == "max", "intmap large keys roundtrip max");
+    CHECK(parsed->IntMapFind(INT64_MIN)->Str() == "min", "intmap large keys roundtrip min");
 
     DataNode::Decref(n);
     DataNode::Decref(parsed);

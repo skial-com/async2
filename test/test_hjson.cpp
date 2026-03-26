@@ -28,16 +28,16 @@ static void test_json_object() {
     auto* n = parse(R"({"key": "value"})");
     CHECK(n && n->type == DataType::Object, "json object");
     auto* v = n->ObjFind("key");
-    CHECK(v && v->type == DataType::String && v->str_val == "value", "json object value");
+    CHECK(v && v->type == DataType::String && v->Str() == "value", "json object value");
     DataNode::Decref(n);
 }
 
 static void test_json_array() {
     auto* n = parse(R"([1, 2, 3])");
     CHECK(n && n->type == DataType::Array, "json array");
-    CHECK(n->arr.size() == 3, "json array length");
-    CHECK(n->arr[0]->int_val == 1, "json array[0]");
-    CHECK(n->arr[2]->int_val == 3, "json array[2]");
+    CHECK(n->Arr().size() == 3, "json array length");
+    CHECK(n->Arr()[0]->int_val == 1, "json array[0]");
+    CHECK(n->Arr()[2]->int_val == 3, "json array[2]");
     DataNode::Decref(n);
 }
 
@@ -47,10 +47,10 @@ static void test_json_nested() {
     auto* a = n->ObjFind("a");
     CHECK(a && a->type == DataType::Object, "nested inner object");
     auto* b = a->ObjFind("b");
-    CHECK(b && b->type == DataType::Array && b->arr.size() == 3, "nested array");
-    CHECK(b->arr[0]->int_val == 1, "nested array int");
-    CHECK(b->arr[1]->bool_val == true, "nested array bool");
-    CHECK(b->arr[2]->type == DataType::Null, "nested array null");
+    CHECK(b && b->type == DataType::Array && b->Arr().size() == 3, "nested array");
+    CHECK(b->Arr()[0]->int_val == 1, "nested array int");
+    CHECK(b->Arr()[1]->bool_val == true, "nested array bool");
+    CHECK(b->Arr()[2]->type == DataType::Null, "nested array null");
     DataNode::Decref(n);
 }
 
@@ -58,7 +58,7 @@ static void test_json_string_escapes() {
     auto* n = parse(R"({"a": "hello\nworld\t!"})");
     CHECK(n != nullptr, "string escapes parse");
     auto* v = n->ObjFind("a");
-    CHECK(v && v->str_val == "hello\nworld\t!", "string escapes value");
+    CHECK(v && v->Str() == "hello\nworld\t!", "string escapes value");
     DataNode::Decref(n);
 }
 
@@ -79,7 +79,7 @@ static void test_hash_comments() {
         "key": "value" # inline comment after quoted value is a comment
     })");
     CHECK(n && n->type == DataType::Object, "hash comments");
-    CHECK(n->ObjFind("key")->str_val == "value", "hash comment value");
+    CHECK(n->ObjFind("key")->Str() == "value", "hash comment value");
     DataNode::Decref(n);
 }
 
@@ -89,7 +89,7 @@ static void test_line_comments() {
         "key": "value" // inline comment
     })");
     CHECK(n && n->type == DataType::Object, "line comments");
-    CHECK(n->ObjFind("key")->str_val == "value", "line comment value");
+    CHECK(n->ObjFind("key")->Str() == "value", "line comment value");
     DataNode::Decref(n);
 }
 
@@ -99,7 +99,7 @@ static void test_block_comments() {
         "key": /* inline */ "value"
     })");
     CHECK(n && n->type == DataType::Object, "block comments");
-    CHECK(n->ObjFind("key")->str_val == "value", "block comment value");
+    CHECK(n->ObjFind("key")->Str() == "value", "block comment value");
     DataNode::Decref(n);
 }
 
@@ -109,7 +109,7 @@ static void test_unquoted_keys() {
         age: 30
     })");
     CHECK(n && n->type == DataType::Object, "unquoted keys");
-    CHECK(n->ObjFind("name")->str_val == "John", "unquoted key name");
+    CHECK(n->ObjFind("name")->Str() == "John", "unquoted key name");
     CHECK(n->ObjFind("age")->int_val == 30, "unquoted key age");
     DataNode::Decref(n);
 }
@@ -120,8 +120,8 @@ static void test_unquoted_values() {
         path: /usr/local/bin
     })");
     CHECK(n && n->type == DataType::Object, "unquoted values");
-    CHECK(n->ObjFind("message")->str_val == "hello world", "unquoted value message");
-    CHECK(n->ObjFind("path")->str_val == "/usr/local/bin", "unquoted value path");
+    CHECK(n->ObjFind("message")->Str() == "hello world", "unquoted value message");
+    CHECK(n->ObjFind("path")->Str() == "/usr/local/bin", "unquoted value path");
     DataNode::Decref(n);
 }
 
@@ -136,7 +136,7 @@ static void test_trailing_commas() {
     DataNode::Decref(n);
 
     auto* arr = parse("[1, 2, 3,]");
-    CHECK(arr && arr->type == DataType::Array && arr->arr.size() == 3, "trailing comma array");
+    CHECK(arr && arr->type == DataType::Array && arr->Arr().size() == 3, "trailing comma array");
     DataNode::Decref(arr);
 }
 
@@ -152,7 +152,7 @@ static void test_multiline_string() {
     CHECK(n && n->type == DataType::Object, "multiline string");
     auto* v = n->ObjFind("text");
     CHECK(v && v->type == DataType::String, "multiline is string");
-    CHECK(v->str_val == "first line\n  indented line\nlast line", "multiline indent stripped");
+    CHECK(v->Str() == "first line\n  indented line\nlast line", "multiline indent stripped");
     DataNode::Decref(n);
 }
 
@@ -166,7 +166,7 @@ static void test_multiline_embedded_quote() {
     })");
     CHECK(n && n->type == DataType::Object, "multiline embedded quote");
     auto* v = n->ObjFind("text");
-    CHECK(v && v->str_val.find("it's") != std::string::npos, "multiline contains it's");
+    CHECK(v && v->Str().find("it's") != std::string::npos, "multiline contains it's");
     DataNode::Decref(n);
 }
 
@@ -177,9 +177,9 @@ static void test_single_quoted_string() {
         c: 'with \n newline'
     })");
     CHECK(n && n->type == DataType::Object, "single quoted strings");
-    CHECK(n->ObjFind("a")->str_val == "single quoted", "single quoted value");
-    CHECK(n->ObjFind("b")->str_val == "with ' escape", "single quote escape");
-    CHECK(n->ObjFind("c")->str_val == "with \n newline", "single quote newline escape");
+    CHECK(n->ObjFind("a")->Str() == "single quoted", "single quoted value");
+    CHECK(n->ObjFind("b")->Str() == "with ' escape", "single quote escape");
+    CHECK(n->ObjFind("c")->Str() == "with \n newline", "single quote newline escape");
     DataNode::Decref(n);
 }
 
@@ -190,7 +190,7 @@ static void test_root_object_no_braces() {
         active: true
     )");
     CHECK(n && n->type == DataType::Object, "root no braces");
-    CHECK(n->ObjFind("name")->str_val == "John", "root no braces name");
+    CHECK(n->ObjFind("name")->Str() == "John", "root no braces name");
     CHECK(n->ObjFind("age")->int_val == 30, "root no braces age");
     CHECK(n->ObjFind("active")->bool_val == true, "root no braces bool");
     DataNode::Decref(n);
@@ -228,7 +228,7 @@ static void test_empty_containers() {
     DataNode::Decref(obj);
 
     auto* arr = parse("[]");
-    CHECK(arr && arr->type == DataType::Array && arr->arr.size() == 0, "empty array");
+    CHECK(arr && arr->type == DataType::Array && arr->Arr().size() == 0, "empty array");
     DataNode::Decref(arr);
 }
 
@@ -249,12 +249,12 @@ static void test_nested_hjson() {
     CHECK(n && n->type == DataType::Object, "nested hjson");
     auto* server = n->ObjFind("server");
     CHECK(server && server->type == DataType::Object, "nested server object");
-    CHECK(server->ObjFind("host")->str_val == "localhost", "server host");
+    CHECK(server->ObjFind("host")->Str() == "localhost", "server host");
     CHECK(server->ObjFind("port")->int_val == 8080, "server port");
     CHECK(server->ObjFind("ssl")->bool_val == true, "server ssl");
     auto* plugins = n->ObjFind("plugins");
-    CHECK(plugins && plugins->type == DataType::Array && plugins->arr.size() == 3, "plugins array");
-    CHECK(plugins->arr[0]->str_val == "plugin_a", "plugin_a");
+    CHECK(plugins && plugins->type == DataType::Array && plugins->Arr().size() == 3, "plugins array");
+    CHECK(plugins->Arr()[0]->Str() == "plugin_a", "plugin_a");
     DataNode::Decref(n);
 }
 
@@ -284,13 +284,13 @@ static void test_leading_zeros() {
 static void test_unicode_escape() {
     auto* n = parse(R"({"key": "\u0041\u0042"})");
     CHECK(n != nullptr, "unicode escape parse");
-    CHECK(n->ObjFind("key")->str_val == "AB", "unicode AB");
+    CHECK(n->ObjFind("key")->Str() == "AB", "unicode AB");
     DataNode::Decref(n);
 }
 
 static void test_empty_multiline() {
     auto* n = parse("''''''");
-    CHECK(n && n->type == DataType::String && n->str_val.empty(), "empty multiline string");
+    CHECK(n && n->type == DataType::String && n->Str().empty(), "empty multiline string");
     DataNode::Decref(n);
 }
 
@@ -298,7 +298,7 @@ static void test_root_value_fallback() {
     // Bare string that looks like it could start a key but isn't
     auto* n = parse("allow quoteless strings");
     CHECK(n && n->type == DataType::String, "bare quoteless string");
-    CHECK(n->str_val == "allow quoteless strings", "bare quoteless string value");
+    CHECK(n->Str() == "allow quoteless strings", "bare quoteless string value");
     DataNode::Decref(n);
 
     // Bare number
@@ -347,15 +347,15 @@ static bool deep_equal(const DataNode* a, const DataNode* b) {
             double mag = std::max(std::abs(da), std::abs(db));
             return diff <= mag * 1e-10;
         }
-        case DataType::String: return a->str_val == b->str_val;
+        case DataType::String: return a->Str() == b->Str();
         case DataType::Array:
-            if (a->arr.size() != b->arr.size()) return false;
-            for (size_t i = 0; i < a->arr.size(); i++)
-                if (!deep_equal(a->arr[i], b->arr[i])) return false;
+            if (a->Arr().size() != b->Arr().size()) return false;
+            for (size_t i = 0; i < a->Arr().size(); i++)
+                if (!deep_equal(a->Arr()[i], b->Arr()[i])) return false;
             return true;
         case DataType::Object:
             if (a->ObjSize() != b->ObjSize()) return false;
-            for (auto it = a->obj.begin(); it != a->obj.end(); ++it) {
+            for (auto it = a->Obj().begin(); it != a->Obj().end(); ++it) {
                 auto* bv = b->ObjFind(it->first.c_str());
                 if (!bv || !deep_equal(it->second, bv)) return false;
             }

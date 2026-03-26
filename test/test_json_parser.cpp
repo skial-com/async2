@@ -31,15 +31,15 @@ static bool json_equal(const DataNode* a, const DataNode* b) {
         case DataType::Bool:   return a->bool_val == b->bool_val;
         case DataType::Int:    return a->int_val == b->int_val;
         case DataType::Float:  return a->float_val == b->float_val;
-        case DataType::String: return a->str_val == b->str_val;
+        case DataType::String: return a->Str() == b->Str();
         case DataType::Array:
-            if (a->arr.size() != b->arr.size()) return false;
-            for (size_t i = 0; i < a->arr.size(); i++)
-                if (!json_equal(a->arr[i], b->arr[i])) return false;
+            if (a->Arr().size() != b->Arr().size()) return false;
+            for (size_t i = 0; i < a->Arr().size(); i++)
+                if (!json_equal(a->Arr()[i], b->Arr()[i])) return false;
             return true;
         case DataType::Object:
             if (a->ObjSize() != b->ObjSize()) return false;
-            for (const auto& [key, val] : a->obj) {
+            for (const auto& [key, val] : a->Obj()) {
                 auto* bval = b->ObjFind(key);
                 if (!bval || !json_equal(val, bval)) return false;
             }
@@ -324,7 +324,7 @@ static void test_api(TestResult& result) {
     // Test string
     {
         auto* r = DataParseJson("\"hello\"", 7);
-        if (r && r->type == DataType::String && r->str_val == "hello") result.passed++;
+        if (r && r->type == DataType::String && r->Str() == "hello") result.passed++;
         else { result.failed++; result.failures.push_back("API: string parse"); }
         DataNode::Decref(r);
     }
@@ -338,28 +338,28 @@ static void test_api(TestResult& result) {
     // Test empty array
     {
         auto* r = DataParseJson("[]", 2);
-        if (r && r->type == DataType::Array && r->arr.empty()) result.passed++;
+        if (r && r->type == DataType::Array && r->Arr().empty()) result.passed++;
         else { result.failed++; result.failures.push_back("API: empty array"); }
         DataNode::Decref(r);
     }
     // Test string escapes
     {
         auto* r = DataParseJson("\"\\n\\t\\r\\\\\\\"\"", 12);
-        if (r && r->type == DataType::String && r->str_val == "\n\t\r\\\"") result.passed++;
+        if (r && r->type == DataType::String && r->Str() == "\n\t\r\\\"") result.passed++;
         else { result.failed++; result.failures.push_back("API: string escapes"); }
         DataNode::Decref(r);
     }
     // Test unicode escape
     {
         auto* r = DataParseJson("\"\\u0041\"", 8);
-        if (r && r->type == DataType::String && r->str_val == "A") result.passed++;
+        if (r && r->type == DataType::String && r->Str() == "A") result.passed++;
         else { result.failed++; result.failures.push_back("API: unicode escape"); }
         DataNode::Decref(r);
     }
     // Test surrogate pair
     {
         auto* r = DataParseJson("\"\\uD834\\uDD1E\"", 14);
-        if (r && r->type == DataType::String && r->str_val == "\xF0\x9D\x84\x9E") result.passed++;
+        if (r && r->type == DataType::String && r->Str() == "\xF0\x9D\x84\x9E") result.passed++;
         else { result.failed++; result.failures.push_back("API: surrogate pair"); }
         DataNode::Decref(r);
     }
@@ -380,12 +380,12 @@ static void test_api(TestResult& result) {
     // Test array with mixed types
     {
         auto* r = DataParseJson("[1,\"two\",true,null,3.5]", 23);
-        if (r && r->type == DataType::Array && r->arr.size() == 5) {
-            bool ok = r->arr[0]->type == DataType::Int && r->arr[0]->int_val == 1
-                   && r->arr[1]->type == DataType::String && r->arr[1]->str_val == "two"
-                   && r->arr[2]->type == DataType::Bool && r->arr[2]->bool_val == true
-                   && r->arr[3]->type == DataType::Null
-                   && r->arr[4]->type == DataType::Float;
+        if (r && r->type == DataType::Array && r->Arr().size() == 5) {
+            bool ok = r->Arr()[0]->type == DataType::Int && r->Arr()[0]->int_val == 1
+                   && r->Arr()[1]->type == DataType::String && r->Arr()[1]->Str() == "two"
+                   && r->Arr()[2]->type == DataType::Bool && r->Arr()[2]->bool_val == true
+                   && r->Arr()[3]->type == DataType::Null
+                   && r->Arr()[4]->type == DataType::Float;
             if (ok) result.passed++;
             else { result.failed++; result.failures.push_back("API: mixed array elements"); }
         } else { result.failed++; result.failures.push_back("API: mixed array parse"); }
@@ -397,8 +397,8 @@ static void test_api(TestResult& result) {
         if (r) {
             auto* copy = r->DeepCopy();
             // Modify original, verify copy is independent
-            r->ObjFind("x")->arr.push_back(DataNode::MakeInt(3));
-            if (copy->ObjFind("x")->arr.size() == 2) result.passed++;
+            r->ObjFind("x")->Arr().push_back(DataNode::MakeInt(3));
+            if (copy->ObjFind("x")->Arr().size() == 2) result.passed++;
             else { result.failed++; result.failures.push_back("API: deep copy independence"); }
             DataNode::Decref(copy);
         } else { result.failed++; result.failures.push_back("API: deep copy parse"); }
@@ -463,8 +463,8 @@ static void test_api(TestResult& result) {
         obj->ObjInsert("name", DataNode::MakeString("test"));
         obj->ObjInsert("count", DataNode::MakeInt(42));
         auto* arr = DataNode::MakeArray();
-        arr->arr.push_back(DataNode::MakeBool(true));
-        arr->arr.push_back(DataNode::MakeNull());
+        arr->Arr().push_back(DataNode::MakeBool(true));
+        arr->Arr().push_back(DataNode::MakeNull());
         obj->ObjInsert("arr", arr);
 
         const char* expected = "{\"name\":\"test\",\"count\":42,\"arr\":[true,null]}";
@@ -657,7 +657,7 @@ static void test_utilities(TestResult& result) {
         auto* b = DataParseJson("{\"k\":\"v\"}", 9);
         a->ObjMerge(b, true);
         auto* k = a->ObjFind("k");
-        if (k && k->type == DataType::String && k->str_val == "v") result.passed++;
+        if (k && k->type == DataType::String && k->Str() == "v") result.passed++;
         else { result.failed++; result.failures.push_back("Util: ObjectMerge into empty"); }
         DataNode::Decref(a);
         DataNode::Decref(b);
@@ -682,10 +682,10 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[10,20,30,40]", 13);
         bool ok = node->ArrRemove(1); // remove 20
-        if (ok && node->arr.size() == 3 &&
-            node->arr[0]->int_val == 10 &&
-            node->arr[1]->int_val == 30 &&
-            node->arr[2]->int_val == 40)
+        if (ok && node->Arr().size() == 3 &&
+            node->Arr()[0]->int_val == 10 &&
+            node->Arr()[1]->int_val == 30 &&
+            node->Arr()[2]->int_val == 40)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove middle"); }
         DataNode::Decref(node);
@@ -694,7 +694,7 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2,3]", 7);
         node->ArrRemove(0);
-        if (node->arr.size() == 2 && node->arr[0]->int_val == 2) result.passed++;
+        if (node->Arr().size() == 2 && node->Arr()[0]->int_val == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove first"); }
         DataNode::Decref(node);
     }
@@ -702,7 +702,7 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2,3]", 7);
         node->ArrRemove(2);
-        if (node->arr.size() == 2 && node->arr[1]->int_val == 2) result.passed++;
+        if (node->Arr().size() == 2 && node->Arr()[1]->int_val == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove last"); }
         DataNode::Decref(node);
     }
@@ -710,7 +710,7 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2]", 5);
         bool ok = node->ArrRemove(5);
-        if (!ok && node->arr.size() == 2) result.passed++;
+        if (!ok && node->Arr().size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayRemove OOB"); }
         DataNode::Decref(node);
     }
@@ -719,8 +719,8 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2,3]", 7);
         node->ArrSet(1, DataNode::MakeString("replaced"));
-        if (node->arr[1]->type == DataType::String && node->arr[1]->str_val == "replaced" &&
-            node->arr[0]->int_val == 1 && node->arr[2]->int_val == 3)
+        if (node->Arr()[1]->type == DataType::String && node->Arr()[1]->Str() == "replaced" &&
+            node->Arr()[0]->int_val == 1 && node->Arr()[2]->int_val == 3)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArraySet basic"); }
         DataNode::Decref(node);
@@ -729,7 +729,7 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1]", 3);
         node->ArrSet(5, DataNode::MakeInt(99));
-        if (node->arr.size() == 1 && node->arr[0]->int_val == 1) result.passed++;
+        if (node->Arr().size() == 1 && node->Arr()[0]->int_val == 1) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArraySet OOB"); }
         DataNode::Decref(node);
     }
@@ -738,7 +738,7 @@ static void test_utilities(TestResult& result) {
     {
         auto* node = DataParseJson("[1,2,3,4,5]", 11);
         node->ArrClear();
-        if (node->arr.size() == 0 && node->type == DataType::Array) result.passed++;
+        if (node->Arr().size() == 0 && node->type == DataType::Array) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayClear"); }
         DataNode::Decref(node);
     }
@@ -748,9 +748,9 @@ static void test_utilities(TestResult& result) {
         auto* a = DataParseJson("[1,2]", 5);
         auto* b = DataParseJson("[3,4,5]", 7);
         a->ArrExtend(b);
-        if (a->arr.size() == 5 &&
-            a->arr[0]->int_val == 1 && a->arr[1]->int_val == 2 &&
-            a->arr[2]->int_val == 3 && a->arr[3]->int_val == 4 && a->arr[4]->int_val == 5)
+        if (a->Arr().size() == 5 &&
+            a->Arr()[0]->int_val == 1 && a->Arr()[1]->int_val == 2 &&
+            a->Arr()[2]->int_val == 3 && a->Arr()[3]->int_val == 4 && a->Arr()[4]->int_val == 5)
             result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend"); }
         DataNode::Decref(a);
@@ -761,7 +761,7 @@ static void test_utilities(TestResult& result) {
         auto* a = DataNode::MakeArray();
         auto* b = DataParseJson("[1,2]", 5);
         a->ArrExtend(b);
-        if (a->arr.size() == 2) result.passed++;
+        if (a->Arr().size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend into empty"); }
         DataNode::Decref(a);
         DataNode::Decref(b);
@@ -771,7 +771,7 @@ static void test_utilities(TestResult& result) {
         auto* a = DataParseJson("[1,2]", 5);
         auto* b = DataNode::MakeArray();
         a->ArrExtend(b);
-        if (a->arr.size() == 2) result.passed++;
+        if (a->Arr().size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend from empty"); }
         DataNode::Decref(a);
         DataNode::Decref(b);
@@ -782,9 +782,9 @@ static void test_utilities(TestResult& result) {
         auto* b = DataParseJson("[[1,2]]", 7);
         a->ArrExtend(b);
         // Mutate source
-        b->arr[0]->ArrClear();
+        b->Arr()[0]->ArrClear();
         // Target should be unaffected
-        if (a->arr.size() == 1 && a->arr[0]->arr.size() == 2) result.passed++;
+        if (a->Arr().size() == 1 && a->Arr()[0]->Arr().size() == 2) result.passed++;
         else { result.failed++; result.failures.push_back("Util: ArrayExtend deep copy"); }
         DataNode::Decref(a);
         DataNode::Decref(b);

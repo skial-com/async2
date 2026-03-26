@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
             volatile int64_t sink = 0;
             int idx = 0;
             printf("%-35s %12s\n", label,
-                fmt(bench(ACCESS_OPS, [&]{ sink = arr->arr[indices[idx++]]->int_val; }), buf, sizeof(buf)));
+                fmt(bench(ACCESS_OPS, [&]{ sink = arr->Arr()[indices[idx++]]->int_val; }), buf, sizeof(buf)));
             (void)sink;
         }
         DataNode::Decref(root);
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
         printf("%-35s %12s\n", label,
             fmt(bench(reps, [&]{
                 auto* arr = DataNode::MakeArray();
-                for (int i = 0; i < n; i++) arr->arr.push_back(DataNode::MakeInt(i));
+                for (int i = 0; i < n; i++) arr->Arr().push_back(DataNode::MakeInt(i));
                 DataNode::Decref(arr);
             }) / n, buf, sizeof(buf)));
     }
@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
             printf("%-35s %12s\n", label,
                 fmt(bench(reps, [&]{
                     auto* arr = DataNode::MakeArray();
-                    for (int i = 0; i < n; i++) arr->arr.insert(arr->arr.begin() + positions[i], DataNode::MakeInt(i));
+                    for (int i = 0; i < n; i++) arr->Arr().insert(arr->Arr().begin() + positions[i], DataNode::MakeInt(i));
                     DataNode::Decref(arr);
                 }) / n, buf, sizeof(buf)));
         }
@@ -207,11 +207,11 @@ int main(int argc, char** argv) {
             double total_ns = 0;
             for (int r = 0; r < reps; r++) {
                 auto* arr = DataNode::MakeArray();
-                for (int i = 0; i < n; i++) arr->arr.push_back(DataNode::MakeInt(i));
+                for (int i = 0; i < n; i++) arr->Arr().push_back(DataNode::MakeInt(i));
                 auto s = Clock::now();
                 for (int i = 0; i < n; i++) {
-                    DataNode::Decref(arr->arr[indices[r][i]]);
-                    arr->arr.erase(arr->arr.begin() + indices[r][i]);
+                    DataNode::Decref(arr->Arr()[indices[r][i]]);
+                    arr->Arr().erase(arr->Arr().begin() + indices[r][i]);
                 }
                 auto e = Clock::now();
                 total_ns += (double)std::chrono::duration_cast<std::chrono::nanoseconds>(e - s).count();
@@ -251,12 +251,12 @@ int main(int argc, char** argv) {
     // Memory footprint
     {
         auto* root = DataParseJson(data.data(), data.size());
+        size_t est = root->EstimateBytes();
         size_t total, free_blocks, block_size;
         DataPoolStats(total, free_blocks, block_size);
         size_t used = total - free_blocks;
-        printf("\nmemory: %zu nodes * %zu bytes = %zu KB pool\n",
-            used, block_size, used * block_size / 1024);
-        printf("        sizeof(DataNode) = %zu\n", sizeof(DataNode));
+        printf("\nmemory: %zu nodes * %zu B/node = %zu KB pool, %zu KB estimated total\n",
+            used, block_size, used * block_size / 1024, est / 1024);
         DataNode::Decref(root);
     }
 

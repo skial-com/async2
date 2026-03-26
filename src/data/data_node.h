@@ -31,8 +31,8 @@ struct DataNode {
         double float_val;
         std::string str_val;
         std::vector<DataNode*> arr;
-        DataMap<std::string, DataNode*> obj;
-        DataMap<int64_t, DataNode*> intmap;
+        DataMap<std::string, DataNode*>* obj_ptr;
+        DataMap<int64_t, DataNode*>* intmap_ptr;
         std::vector<uint8_t> bin;
     };
 
@@ -45,13 +45,13 @@ struct DataNode {
     // Accessors — single indirection point for heap-container variants
     auto& Str() { return str_val; }
     auto& Arr() { return arr; }
-    auto& Obj() { return obj; }
-    auto& Intmap() { return intmap; }
+    auto& Obj() { return *obj_ptr; }
+    auto& Intmap() { return *intmap_ptr; }
     auto& Bin() { return bin; }
     const auto& Str() const { return str_val; }
     const auto& Arr() const { return arr; }
-    const auto& Obj() const { return obj; }
-    const auto& Intmap() const { return intmap; }
+    const auto& Obj() const { return *obj_ptr; }
+    const auto& Intmap() const { return *intmap_ptr; }
     const auto& Bin() const { return bin; }
 
     // Factory methods (allocate from pool)
