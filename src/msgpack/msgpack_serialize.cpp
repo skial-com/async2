@@ -119,11 +119,11 @@ static void serialize_node(const DataNode& node, std::vector<uint8_t>& out) {
             break;
 
         case DataType::String:
-            write_msgpack_str(out, node.str_val.data(), node.str_val.size());
+            write_msgpack_str(out, node.Str().data(), node.Str().size());
             break;
 
         case DataType::Array: {
-            size_t count = node.arr.size();
+            size_t count = node.Arr().size();
             if (count <= 15) {
                 write_u8(out, 0x90 | static_cast<uint8_t>(count));
             } else if (count <= 0xffff) {
@@ -133,14 +133,14 @@ static void serialize_node(const DataNode& node, std::vector<uint8_t>& out) {
                 write_u8(out, 0xdd);
                 write_u32(out, static_cast<uint32_t>(count));
             }
-            for (const auto* elem : node.arr)
+            for (const auto* elem : node.Arr())
                 serialize_node(*elem, out);
             break;
         }
 
         case DataType::Object: {
-            write_msgpack_map_header(out, node.obj.size());
-            for (const auto& [key, val] : node.obj) {
+            write_msgpack_map_header(out, node.Obj().size());
+            for (const auto& [key, val] : node.Obj()) {
                 write_msgpack_str(out, key.data(), key.size());
                 serialize_node(*val, out);
             }
@@ -148,8 +148,8 @@ static void serialize_node(const DataNode& node, std::vector<uint8_t>& out) {
         }
 
         case DataType::IntMap: {
-            write_msgpack_map_header(out, node.intmap.size());
-            for (const auto& [key, val] : node.intmap) {
+            write_msgpack_map_header(out, node.Intmap().size());
+            for (const auto& [key, val] : node.Intmap()) {
                 write_msgpack_int(out, key);
                 serialize_node(*val, out);
             }
@@ -157,7 +157,7 @@ static void serialize_node(const DataNode& node, std::vector<uint8_t>& out) {
         }
 
         case DataType::Binary: {
-            size_t len = node.bin.size();
+            size_t len = node.Bin().size();
             if (len <= 0xff) {
                 write_u8(out, 0xc4);
                 write_u8(out, static_cast<uint8_t>(len));
@@ -168,7 +168,7 @@ static void serialize_node(const DataNode& node, std::vector<uint8_t>& out) {
                 write_u8(out, 0xc6);
                 write_u32(out, static_cast<uint32_t>(len));
             }
-            write_bytes(out, node.bin.data(), len);
+            write_bytes(out, node.Bin().data(), len);
             break;
         }
     }

@@ -54,7 +54,8 @@ int main(int argc, char** argv) {
     constexpr int ACCESS_OPS = 100000;
     char buf[32];
 
-    printf("DataNode Benchmark (%zu bytes, parse ops=%d)\n", data.size(), parse_ops);
+    printf("DataNode Benchmark (sizeof=%zu, %zu bytes input, parse ops=%d)\n",
+        sizeof(DataNode), data.size(), parse_ops);
     printf("%-35s %12s\n", "benchmark", "time");
     printf("%-35s %12s\n", "-----------------------------------", "------------");
 
@@ -228,11 +229,42 @@ int main(int argc, char** argv) {
         DataNode::Decref(root);
     }
 
+    // String creation
+    for (auto [len, label] : std::vector<std::pair<int,const char*>>{{4,"short(4)"},{16,"medium(16)"},{256,"long(256)"}}) {
+        char lbl[64];
+        snprintf(lbl, sizeof(lbl), "MakeString %s", label);
+        std::string s(len, 'x');
+        printf("%-35s %12s\n", lbl,
+            fmt(bench(ACCESS_OPS, [&]{ auto* n = DataNode::MakeString(s.c_str()); DataNode::Decref(n); }), buf, sizeof(buf)));
+    }
+
+    // String access
+    {
+        auto* s = DataNode::MakeString("hello world test");
+        volatile const char* sink;
+        printf("%-35s %12s\n", "string c_str() access",
+            fmt(bench(ACCESS_OPS, [&]{ sink = s->Str().c_str(); }), buf, sizeof(buf)));
+        (void)sink;
+        DataNode::Decref(s);
+    }
+
+    // Memory footprint
+    {
+        auto* root = DataParseJson(data.data(), data.size());
+        size_t total, free_blocks, block_size;
+        DataPoolStats(total, free_blocks, block_size);
+        size_t used = total - free_blocks;
+        printf("\nmemory: %zu nodes * %zu bytes = %zu KB pool\n",
+            used, block_size, used * block_size / 1024);
+        printf("        sizeof(DataNode) = %zu\n", sizeof(DataNode));
+        DataNode::Decref(root);
+    }
+
     // Pool stats
     {
         size_t total, free_blocks, block_size;
         DataPoolStats(total, free_blocks, block_size);
-        printf("\npool: %zu blocks (%zu free), %zu bytes/block\n", total, free_blocks, block_size);
+        printf("pool: %zu blocks (%zu free), %zu bytes/block\n", total, free_blocks, block_size);
     }
 
     return 0;

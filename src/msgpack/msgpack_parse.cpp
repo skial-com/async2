@@ -111,7 +111,7 @@ static DataNode* read_map(Reader& r, size_t count, int depth) {
             DataNode::Decref(obj);
             return nullptr;
         }
-        std::string key = key_node->str_val;
+        std::string key = key_node->Str();
         DataNode::Decref(key_node);
         DataNode* val = read_node(r, depth + 1);
         if (!val) { DataNode::Decref(obj); return nullptr; }
@@ -124,11 +124,11 @@ static DataNode* read_array(Reader& r, size_t count, int depth) {
     if (count > g_max_container_elements)
         return nullptr;
     auto* arr = DataNode::MakeArray();
-    arr->arr.reserve(count);
+    arr->Arr().reserve(count);
     for (size_t i = 0; i < count; i++) {
         DataNode* elem = read_node(r, depth + 1);
         if (!elem) { DataNode::Decref(arr); return nullptr; }
-        arr->arr.push_back(elem);
+        arr->Arr().push_back(elem);
     }
     return arr;
 }

@@ -662,7 +662,7 @@ static DataNode* read_array(Reader& r, int depth) {
     while (r.pos < r.len && r.data[r.pos] != ']') {
         DataNode* val = read_value(r, depth + 1);
         if (!val) { DataNode::Decref(arr); return nullptr; }
-        arr->arr.push_back(val);
+        arr->Arr().push_back(val);
         r.skip_separator();
     }
 

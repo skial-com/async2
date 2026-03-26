@@ -87,8 +87,8 @@ static std::string BuildPathString(IPluginContext* pContext, DataNode* root,
             path += "[";
             path += std::to_string(index);
             path += "]";
-            if (index < 0 || static_cast<size_t>(index) >= node->arr.size()) break;
-            node = node->arr[index];
+            if (index < 0 || static_cast<size_t>(index) >= node->Arr().size()) break;
+            node = node->Arr()[index];
         } else {
             break;
         }
@@ -173,14 +173,14 @@ static DataNode* ResolveJsonPath(IPluginContext* pContext, DataNode* node,
             }
             int index = static_cast<int>(*phys_addr);
 
-            if (index < 0 || static_cast<size_t>(index) >= node->arr.size()) {
+            if (index < 0 || static_cast<size_t>(index) >= node->Arr().size()) {
                 char reason[64];
                 snprintf(reason, sizeof(reason), "index %d out of bounds (length %zu)",
-                         index, node->arr.size());
+                         index, node->Arr().size());
                 SetPathError(pContext, root, params, start, i + 1, reason);
                 return nullptr;
             }
-            node = node->arr[index];
+            node = node->Arr()[index];
         } else {
             char reason[64];
             snprintf(reason, sizeof(reason), "cannot index into %s", DataTypeName(node->type));
@@ -567,7 +567,7 @@ static cell_t Native_IterGetString(IPluginContext* pContext, const cell_t* param
     }
     DataNode* v = iter->Value();
     if (v->type == DataType::String) {
-        pContext->StringToLocal(params[2], params[3], v->str_val.c_str());
+        pContext->StringToLocal(params[2], params[3], v->Str().c_str());
         return 0;
     }
     pContext->StringToLocal(params[2], params[3], "");
@@ -802,7 +802,7 @@ static cell_t Native_JsonArrayAppendObject(IPluginContext* pContext, const cell_
     if (json->node == child->node)
         return pContext->ThrowNativeError("Cannot ArrayAppendObject with self as child");
     child->node->Incref();
-    json->node->arr.push_back(child->node);
+    json->node->Arr().push_back(child->node);
     g_handle_manager.FreeHandle(params[2]);
     return 0;
 }
@@ -902,7 +902,7 @@ static cell_t Native_JsonPathGetString(IPluginContext* pContext, const cell_t* p
         pContext->StringToLocal(params[2], params[3], "");
         return 0;
     }
-    pContext->StringToLocal(params[2], params[3], target->str_val.c_str());
+    pContext->StringToLocal(params[2], params[3], target->Str().c_str());
     return 0;
 }
 
@@ -1241,7 +1241,7 @@ static cell_t Native_JsonGetBuffer(IPluginContext* pContext, const cell_t* param
     if (!dh || !dh->node || dh->node->type != DataType::Binary)
         return 0;
 
-    const auto& bin = dh->node->bin;
+    const auto& bin = dh->node->Bin();
     int offset = (params[0] >= 4) ? params[4] : 0;
     if (offset < 0 || static_cast<size_t>(offset) >= bin.size())
         return 0;

@@ -115,17 +115,17 @@ static cell_t Native_QueryStringParse(IPluginContext* pContext, const cell_t* pa
         if (existing) {
             if (existing->type == DataType::Array) {
                 // Already an array — append
-                existing->arr.push_back(DataNode::MakeString(dec_val));
+                existing->Arr().push_back(DataNode::MakeString(dec_val));
             } else {
                 // Promote to array: steal existing node, avoid DeepCopy.
                 // Null the map entry so ObjInsert's Destroy() is a no-op.
-                auto it = json->node->obj.find(dec_key);
+                auto it = json->node->Obj().find(dec_key);
                 DataNode* old_node = it->second;
                 it.value() = nullptr;
 
                 DataNode* arr = DataNode::MakeArray();
-                arr->arr.push_back(old_node);
-                arr->arr.push_back(DataNode::MakeString(dec_val));
+                arr->Arr().push_back(old_node);
+                arr->Arr().push_back(DataNode::MakeString(dec_val));
                 json->node->ObjInsert(dec_key, arr);
             }
         } else {
@@ -144,7 +144,7 @@ static cell_t Native_QueryStringParse(IPluginContext* pContext, const cell_t* pa
 static std::string NodeToString(const DataNode* val) {
     if (!val) return {};
     switch (val->type) {
-        case DataType::String: return val->str_val;
+        case DataType::String: return val->Str();
         case DataType::Int:    return std::to_string(val->int_val);
         case DataType::Float: {
             char buf[32];
@@ -183,12 +183,12 @@ static cell_t Native_QueryStringBuild(IPluginContext* pContext, const cell_t* pa
 
     std::string result;
 
-    for (const auto& [key, val] : json->node->obj) {
+    for (const auto& [key, val] : json->node->Obj()) {
         char* enc_key = curl_easy_escape(nullptr, key.c_str(), static_cast<int>(key.size()));
         if (!enc_key) continue;
 
         if (val && val->type == DataType::Array) {
-            for (const auto* elem : val->arr)
+            for (const auto* elem : val->Arr())
                 AppendEncoded(result, enc_key, elem);
         } else {
             AppendEncoded(result, enc_key, val);

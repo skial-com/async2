@@ -42,6 +42,18 @@ struct DataNode {
     DataNode(const DataNode&) = delete;
     DataNode& operator=(const DataNode&) = delete;
 
+    // Accessors — single indirection point for heap-container variants
+    auto& Str() { return str_val; }
+    auto& Arr() { return arr; }
+    auto& Obj() { return obj; }
+    auto& Intmap() { return intmap; }
+    auto& Bin() { return bin; }
+    const auto& Str() const { return str_val; }
+    const auto& Arr() const { return arr; }
+    const auto& Obj() const { return obj; }
+    const auto& Intmap() const { return intmap; }
+    const auto& Bin() const { return bin; }
+
     // Factory methods (allocate from pool)
     static DataNode* MakeNull();
     static DataNode* MakeBool(bool v);

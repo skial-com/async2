@@ -42,7 +42,7 @@ size_t DataHandle::ObjectSize() const {
 
 size_t DataHandle::ArrayLength() const {
     if (!node || node->type != DataType::Array) return 0;
-    return node->arr.size();
+    return node->Arr().size();
 }
 
 bool DataHandle::HasKey(const char* key) const {
@@ -54,7 +54,7 @@ const char* DataHandle::GetString(const char* key) const {
     if (!node) return "";
     const DataNode* v = node->ObjFind(key);
     if (!v || v->type != DataType::String) return "";
-    return v->str_val.c_str();
+    return v->Str().c_str();
 }
 
 int64_t DataHandle::GetInt(const char* key) const {
@@ -98,38 +98,38 @@ DataNode* DataHandle::GetArrayNode(const char* key) const {
 
 // Array getters
 const char* DataHandle::ArrayGetString(size_t index) const {
-    if (!node || node->type != DataType::Array || index >= node->arr.size()) return "";
-    const DataNode* v = node->arr[index];
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return "";
+    const DataNode* v = node->Arr()[index];
     if (v->type != DataType::String) return "";
-    return v->str_val.c_str();
+    return v->Str().c_str();
 }
 
 int64_t DataHandle::ArrayGetInt(size_t index) const {
-    if (!node || node->type != DataType::Array || index >= node->arr.size()) return 0;
-    const DataNode* v = node->arr[index];
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return 0;
+    const DataNode* v = node->Arr()[index];
     if (v->type == DataType::Int) return v->int_val;
     if (v->type == DataType::Float) return static_cast<int64_t>(v->float_val);
     return 0;
 }
 
 double DataHandle::ArrayGetFloat(size_t index) const {
-    if (!node || node->type != DataType::Array || index >= node->arr.size()) return 0.0;
-    const DataNode* v = node->arr[index];
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return 0.0;
+    const DataNode* v = node->Arr()[index];
     if (v->type == DataType::Float) return v->float_val;
     if (v->type == DataType::Int) return static_cast<double>(v->int_val);
     return 0.0;
 }
 
 bool DataHandle::ArrayGetBool(size_t index) const {
-    if (!node || node->type != DataType::Array || index >= node->arr.size()) return false;
-    const DataNode* v = node->arr[index];
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return false;
+    const DataNode* v = node->Arr()[index];
     if (v->type != DataType::Bool) return false;
     return v->bool_val;
 }
 
 DataNode* DataHandle::ArrayGetNode(size_t index) const {
-    if (!node || node->type != DataType::Array || index >= node->arr.size()) return nullptr;
-    return node->arr[index];
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return nullptr;
+    return node->Arr()[index];
 }
 
 // IntMap getters — IntMapFind returns nullptr when type != IntMap,
@@ -138,7 +138,7 @@ const char* DataHandle::IntMapGetString(int64_t key) const {
     if (!node) return "";
     const DataNode* v = node->IntMapFind(key);
     if (!v || v->type != DataType::String) return "";
-    return v->str_val.c_str();
+    return v->Str().c_str();
 }
 
 int64_t DataHandle::IntMapGetInt(int64_t key) const {
@@ -318,27 +318,27 @@ void DataHandle::SetNull(const char* key) {
 // Array append
 void DataHandle::ArrayAppendString(const char* val) {
     if (!node || node->type != DataType::Array) return;
-    node->arr.push_back(DataNode::MakeString(val));
+    node->Arr().push_back(DataNode::MakeString(val));
 }
 
 void DataHandle::ArrayAppendInt(int64_t val) {
     if (!node || node->type != DataType::Array) return;
-    node->arr.push_back(DataNode::MakeInt(val));
+    node->Arr().push_back(DataNode::MakeInt(val));
 }
 
 void DataHandle::ArrayAppendFloat(double val) {
     if (!node || node->type != DataType::Array) return;
-    node->arr.push_back(DataNode::MakeFloat(val));
+    node->Arr().push_back(DataNode::MakeFloat(val));
 }
 
 void DataHandle::ArrayAppendBool(bool val) {
     if (!node || node->type != DataType::Array) return;
-    node->arr.push_back(DataNode::MakeBool(val));
+    node->Arr().push_back(DataNode::MakeBool(val));
 }
 
 void DataHandle::ArrayAppendNull() {
     if (!node || node->type != DataType::Array) return;
-    node->arr.push_back(DataNode::MakeNull());
+    node->Arr().push_back(DataNode::MakeNull());
 }
 
 // Serialize

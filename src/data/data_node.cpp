@@ -135,28 +135,28 @@ DataNode* DataNode::DeepCopy() const {
         case DataType::Bool:   return MakeBool(bool_val);
         case DataType::Int:    return MakeInt(int_val);
         case DataType::Float:  return MakeFloat(float_val);
-        case DataType::String: return MakeString(str_val.c_str());
+        case DataType::String: return MakeString(Str().c_str());
         case DataType::Array: {
             auto* n = MakeArray();
-            n->arr.reserve(arr.size());
-            for (const auto* elem : arr)
-                n->arr.push_back(elem->DeepCopy());
+            n->Arr().reserve(Arr().size());
+            for (const auto* elem : Arr())
+                n->Arr().push_back(elem->DeepCopy());
             return n;
         }
         case DataType::Object: {
             auto* n = MakeObject();
-            for (const auto& [key, val] : obj)
+            for (const auto& [key, val] : Obj())
                 n->ObjInsert(key, val->DeepCopy());
             return n;
         }
         case DataType::IntMap: {
             auto* n = MakeIntMap();
-            for (const auto& [key, val] : intmap)
+            for (const auto& [key, val] : Intmap())
                 n->IntMapInsert(key, val->DeepCopy());
             return n;
         }
         case DataType::Binary:
-            return MakeBinary(bin.data(), bin.size());
+            return MakeBinary(Bin().data(), Bin().size());
     }
     return MakeNull();
 }
@@ -172,34 +172,34 @@ bool DataNode::Equals(const DataNode* other) const {
         case DataType::Bool:   return bool_val == other->bool_val;
         case DataType::Int:    return int_val == other->int_val;
         case DataType::Float:  return float_val == other->float_val;
-        case DataType::String: return str_val == other->str_val;
+        case DataType::String: return Str() == other->Str();
         case DataType::Array: {
-            if (arr.size() != other->arr.size()) return false;
-            for (size_t i = 0; i < arr.size(); i++) {
-                if (!arr[i]->Equals(other->arr[i])) return false;
+            if (Arr().size() != other->Arr().size()) return false;
+            for (size_t i = 0; i < Arr().size(); i++) {
+                if (!Arr()[i]->Equals(other->Arr()[i])) return false;
             }
             return true;
         }
         case DataType::Object: {
-            if (obj.size() != other->obj.size()) return false;
-            for (const auto& [key, val] : obj) {
-                auto it = other->obj.find(key);
-                if (it == other->obj.end()) return false;
+            if (Obj().size() != other->Obj().size()) return false;
+            for (const auto& [key, val] : Obj()) {
+                auto it = other->Obj().find(key);
+                if (it == other->Obj().end()) return false;
                 if (!val->Equals(it->second)) return false;
             }
             return true;
         }
         case DataType::IntMap: {
-            if (intmap.size() != other->intmap.size()) return false;
-            for (const auto& [key, val] : intmap) {
-                auto it = other->intmap.find(key);
-                if (it == other->intmap.end()) return false;
+            if (Intmap().size() != other->Intmap().size()) return false;
+            for (const auto& [key, val] : Intmap()) {
+                auto it = other->Intmap().find(key);
+                if (it == other->Intmap().end()) return false;
                 if (!val->Equals(it->second)) return false;
             }
             return true;
         }
         case DataType::Binary:
-            return bin == other->bin;
+            return Bin() == other->Bin();
     }
     return false;
 }
@@ -208,20 +208,20 @@ bool DataNode::Equals(const DataNode* other) const {
 
 DataNode* DataNode::ObjFind(const std::string& key) const {
     if (type != DataType::Object) return nullptr;
-    auto it = obj.find(key);
-    if (it == obj.end()) return nullptr;
+    auto it = Obj().find(key);
+    if (it == Obj().end()) return nullptr;
     return it->second;
 }
 
 bool DataNode::ObjContains(const std::string& key) const {
     if (type != DataType::Object) return false;
-    return obj.find(key) != obj.end();
+    return Obj().find(key) != Obj().end();
 }
 
 void DataNode::ObjInsert(std::string key, DataNode* val) {
     if (type != DataType::Object) { Decref(val); return; }
     version++;
-    auto [it, inserted] = obj.try_emplace(std::move(key), val);
+    auto [it, inserted] = Obj().try_emplace(std::move(key), val);
     if (!inserted) {
         Decref(it->second);
         it.value() = val;
@@ -230,39 +230,39 @@ void DataNode::ObjInsert(std::string key, DataNode* val) {
 
 bool DataNode::ObjErase(const std::string& key) {
     if (type != DataType::Object) return false;
-    auto it = obj.find(key);
-    if (it == obj.end()) return false;
+    auto it = Obj().find(key);
+    if (it == Obj().end()) return false;
 
     version++;
     Decref(it->second);
-    obj.erase(it);
+    Obj().erase(it);
     return true;
 }
 
 size_t DataNode::ObjSize() const {
     if (type != DataType::Object) return 0;
-    return obj.size();
+    return Obj().size();
 }
 
 void DataNode::ObjClear() {
     if (type != DataType::Object) return;
     version++;
-    for (auto& [key, val] : obj)
+    for (auto& [key, val] : Obj())
         Decref(val);
-    obj.clear();
+    Obj().clear();
 }
 
 void DataNode::ObjMerge(const DataNode* other, bool overwrite) {
     if (type != DataType::Object || !other || other->type != DataType::Object) return;
-    for (const auto& [key, val] : other->obj) {
-        auto it = obj.find(key);
-        if (it != obj.end()) {
+    for (const auto& [key, val] : other->Obj()) {
+        auto it = Obj().find(key);
+        if (it != Obj().end()) {
             if (overwrite) {
                 Decref(it->second);
                 it.value() = val->DeepCopy();
             }
         } else {
-            obj[key] = val->DeepCopy();
+            Obj()[key] = val->DeepCopy();
         }
     }
 }
@@ -271,20 +271,20 @@ void DataNode::ObjMerge(const DataNode* other, bool overwrite) {
 
 DataNode* DataNode::IntMapFind(int64_t key) const {
     if (type != DataType::IntMap) return nullptr;
-    auto it = intmap.find(key);
-    if (it == intmap.end()) return nullptr;
+    auto it = Intmap().find(key);
+    if (it == Intmap().end()) return nullptr;
     return it->second;
 }
 
 bool DataNode::IntMapContains(int64_t key) const {
     if (type != DataType::IntMap) return false;
-    return intmap.find(key) != intmap.end();
+    return Intmap().find(key) != Intmap().end();
 }
 
 void DataNode::IntMapInsert(int64_t key, DataNode* val) {
     if (type != DataType::IntMap) { Decref(val); return; }
     version++;
-    auto [it, inserted] = intmap.try_emplace(key, val);
+    auto [it, inserted] = Intmap().try_emplace(key, val);
     if (!inserted) {
         Decref(it->second);
         it.value() = val;
@@ -293,39 +293,39 @@ void DataNode::IntMapInsert(int64_t key, DataNode* val) {
 
 bool DataNode::IntMapErase(int64_t key) {
     if (type != DataType::IntMap) return false;
-    auto it = intmap.find(key);
-    if (it == intmap.end()) return false;
+    auto it = Intmap().find(key);
+    if (it == Intmap().end()) return false;
 
     version++;
     Decref(it->second);
-    intmap.erase(it);
+    Intmap().erase(it);
     return true;
 }
 
 size_t DataNode::IntMapSize() const {
     if (type != DataType::IntMap) return 0;
-    return intmap.size();
+    return Intmap().size();
 }
 
 void DataNode::IntMapClear() {
     if (type != DataType::IntMap) return;
     version++;
-    for (auto& [key, val] : intmap)
+    for (auto& [key, val] : Intmap())
         Decref(val);
-    intmap.clear();
+    Intmap().clear();
 }
 
 void DataNode::IntMapMerge(const DataNode* other, bool overwrite) {
     if (type != DataType::IntMap || !other || other->type != DataType::IntMap) return;
-    for (const auto& [key, val] : other->intmap) {
-        auto it = intmap.find(key);
-        if (it != intmap.end()) {
+    for (const auto& [key, val] : other->Intmap()) {
+        auto it = Intmap().find(key);
+        if (it != Intmap().end()) {
             if (overwrite) {
                 Decref(it->second);
                 it.value() = val->DeepCopy();
             }
         } else {
-            intmap[key] = val->DeepCopy();
+            Intmap()[key] = val->DeepCopy();
         }
     }
 }
@@ -333,30 +333,30 @@ void DataNode::IntMapMerge(const DataNode* other, bool overwrite) {
 // ---------- Array helpers ----------
 
 bool DataNode::ArrRemove(size_t index) {
-    if (type != DataType::Array || index >= arr.size()) return false;
-    Decref(arr[index]);
-    arr.erase(arr.begin() + index);
+    if (type != DataType::Array || index >= Arr().size()) return false;
+    Decref(Arr()[index]);
+    Arr().erase(Arr().begin() + index);
     return true;
 }
 
 void DataNode::ArrSet(size_t index, DataNode* val) {
-    if (type != DataType::Array || index >= arr.size()) { Decref(val); return; }
-    Decref(arr[index]);
-    arr[index] = val;
+    if (type != DataType::Array || index >= Arr().size()) { Decref(val); return; }
+    Decref(Arr()[index]);
+    Arr()[index] = val;
 }
 
 void DataNode::ArrClear() {
     if (type != DataType::Array) return;
-    for (auto* child : arr)
+    for (auto* child : Arr())
         Decref(child);
-    arr.clear();
+    Arr().clear();
 }
 
 void DataNode::ArrExtend(const DataNode* other) {
     if (type != DataType::Array || !other || other->type != DataType::Array) return;
-    arr.reserve(arr.size() + other->arr.size());
-    for (const auto* elem : other->arr)
-        arr.push_back(elem->DeepCopy());
+    Arr().reserve(Arr().size() + other->Arr().size());
+    for (const auto* elem : other->Arr())
+        Arr().push_back(elem->DeepCopy());
 }
 
 // ---------- EstimateBytes ----------
@@ -366,28 +366,28 @@ size_t DataNode::EstimateBytes() const {
 
     switch (type) {
         case DataType::String:
-            bytes += str_val.capacity();
+            bytes += Str().capacity();
             break;
         case DataType::Array:
-            bytes += arr.capacity() * sizeof(DataNode*);
-            for (const auto* child : arr)
+            bytes += Arr().capacity() * sizeof(DataNode*);
+            for (const auto* child : Arr())
                 bytes += child->EstimateBytes();
             break;
         case DataType::Object:
             // robin_map: bucket_count entries, each holding key+value+metadata
-            bytes += obj.bucket_count() * (sizeof(std::string) + sizeof(DataNode*) + 1);
-            for (const auto& [key, val] : obj) {
+            bytes += Obj().bucket_count() * (sizeof(std::string) + sizeof(DataNode*) + 1);
+            for (const auto& [key, val] : Obj()) {
                 bytes += key.capacity();
                 bytes += val->EstimateBytes();
             }
             break;
         case DataType::IntMap:
-            bytes += intmap.bucket_count() * (sizeof(int64_t) + sizeof(DataNode*) + 1);
-            for (const auto& [key, val] : intmap)
+            bytes += Intmap().bucket_count() * (sizeof(int64_t) + sizeof(DataNode*) + 1);
+            for (const auto& [key, val] : Intmap())
                 bytes += val->EstimateBytes();
             break;
         case DataType::Binary:
-            bytes += bin.capacity();
+            bytes += Bin().capacity();
             break;
         default:
             break;
@@ -446,7 +446,7 @@ static DataNode* od_to_node(simdjson::ondemand::value val, int depth = 0) {
                 if (child.error()) { DataNode::Decref(node); return nullptr; }
                 auto* child_node = od_to_node(child.value(), depth + 1);
                 if (!child_node) { DataNode::Decref(node); return nullptr; }
-                node->arr.push_back(child_node);
+                node->Arr().push_back(child_node);
             }
             return node;
         }
@@ -461,7 +461,7 @@ static DataNode* od_to_node(simdjson::ondemand::value val, int depth = 0) {
                 auto* val_node = od_to_node(field.value(), depth + 1);
                 if (!val_node) { DataNode::Decref(node); return nullptr; }
                 auto kv = key.value();
-                node->obj.emplace(std::string(kv.data(), kv.size()), val_node);
+                node->Obj().emplace(std::string(kv.data(), kv.size()), val_node);
             }
             return node;
         }
@@ -506,7 +506,7 @@ static DataNode* od_to_node_doc(simdjson::ondemand::document& doc) {
                 if (child.error()) { DataNode::Decref(node); return nullptr; }
                 auto* child_node = od_to_node(child.value(), 1);
                 if (!child_node) { DataNode::Decref(node); return nullptr; }
-                node->arr.push_back(child_node);
+                node->Arr().push_back(child_node);
             }
             return node;
         }
@@ -521,7 +521,7 @@ static DataNode* od_to_node_doc(simdjson::ondemand::document& doc) {
                 auto* val_node = od_to_node(field.value(), 1);
                 if (!val_node) { DataNode::Decref(node); return nullptr; }
                 auto kv = key.value();
-                node->obj.emplace(std::string(kv.data(), kv.size()), val_node);
+                node->Obj().emplace(std::string(kv.data(), kv.size()), val_node);
             }
             return node;
         }
@@ -634,7 +634,7 @@ static void serialize_leaf(const DataNode& node, std::string& out) {
             break;
         }
         case DataType::String:
-            serialize_string(node.str_val, out);
+            serialize_string(node.Str(), out);
             break;
         case DataType::IntMap:
         case DataType::Binary:
@@ -652,16 +652,16 @@ static void serialize_value(const DataNode& node, std::string& out, int depth = 
     switch (node.type) {
         case DataType::Array:
             out += '[';
-            for (size_t i = 0; i < node.arr.size(); i++) {
+            for (size_t i = 0; i < node.Arr().size(); i++) {
                 if (i > 0) out += ',';
-                serialize_value(*node.arr[i], out, depth + 1);
+                serialize_value(*node.Arr()[i], out, depth + 1);
             }
             out += ']';
             break;
         case DataType::Object: {
             out += '{';
             bool first = true;
-            for (const auto& [key, val] : node.obj) {
+            for (const auto& [key, val] : node.Obj()) {
                 if (!first) out += ',';
                 first = false;
                 serialize_string(key, out);
@@ -681,14 +681,14 @@ static void serialize_value_pretty(const DataNode& node, std::string& out, int d
     if (depth > kMaxSerializeDepth) { out += "null"; return; }
     switch (node.type) {
         case DataType::Array: {
-            if (node.arr.empty()) {
+            if (node.Arr().empty()) {
                 out += "[]";
             } else {
                 out += "[\n";
-                for (size_t i = 0; i < node.arr.size(); i++) {
+                for (size_t i = 0; i < node.Arr().size(); i++) {
                     if (i > 0) out += ",\n";
                     out.append((depth + 1) * 4, ' ');
-                    serialize_value_pretty(*node.arr[i], out, depth + 1);
+                    serialize_value_pretty(*node.Arr()[i], out, depth + 1);
                 }
                 out += '\n';
                 out.append(depth * 4, ' ');
@@ -697,12 +697,12 @@ static void serialize_value_pretty(const DataNode& node, std::string& out, int d
             break;
         }
         case DataType::Object: {
-            if (node.obj.empty()) {
+            if (node.Obj().empty()) {
                 out += "{}";
             } else {
                 out += "{\n";
                 bool first = true;
-                for (const auto& [key, val] : node.obj) {
+                for (const auto& [key, val] : node.Obj()) {
                     if (!first) out += ",\n";
                     first = false;
                     out.append((depth + 1) * 4, ' ');
