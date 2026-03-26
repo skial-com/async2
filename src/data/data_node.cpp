@@ -220,9 +220,9 @@ bool DataNode::ObjContains(const std::string& key) const {
 
 void DataNode::ObjInsert(std::string key, DataNode* val) {
     if (type != DataType::Object) { Decref(val); return; }
+    version++;
     auto [it, inserted] = obj.try_emplace(std::move(key), val);
     if (!inserted) {
-        // Update in-place to preserve iterator validity
         Decref(it->second);
         it.value() = val;
     }
@@ -233,6 +233,7 @@ bool DataNode::ObjErase(const std::string& key) {
     auto it = obj.find(key);
     if (it == obj.end()) return false;
 
+    version++;
     Decref(it->second);
     obj.erase(it);
     return true;
@@ -245,6 +246,7 @@ size_t DataNode::ObjSize() const {
 
 void DataNode::ObjClear() {
     if (type != DataType::Object) return;
+    version++;
     for (auto& [key, val] : obj)
         Decref(val);
     obj.clear();
@@ -281,6 +283,7 @@ bool DataNode::IntMapContains(int64_t key) const {
 
 void DataNode::IntMapInsert(int64_t key, DataNode* val) {
     if (type != DataType::IntMap) { Decref(val); return; }
+    version++;
     auto [it, inserted] = intmap.try_emplace(key, val);
     if (!inserted) {
         Decref(it->second);
@@ -293,6 +296,7 @@ bool DataNode::IntMapErase(int64_t key) {
     auto it = intmap.find(key);
     if (it == intmap.end()) return false;
 
+    version++;
     Decref(it->second);
     intmap.erase(it);
     return true;
@@ -305,6 +309,7 @@ size_t DataNode::IntMapSize() const {
 
 void DataNode::IntMapClear() {
     if (type != DataType::IntMap) return;
+    version++;
     for (auto& [key, val] : intmap)
         Decref(val);
     intmap.clear();

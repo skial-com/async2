@@ -20,7 +20,8 @@ enum class DataType {
 };
 
 struct DataNode {
-    DataType type;
+    DataType type : 8;
+    uint32_t version : 24;           // mutation counter for iterator invalidation detection
     std::atomic<uint32_t> refcount;  // per-node lifetime refcount (atomic for cross-thread Decref)
 
     // Tagged union: only the member matching `type` is active.
@@ -35,7 +36,7 @@ struct DataNode {
         std::vector<uint8_t> bin;
     };
 
-    DataNode() : type(DataType::Null), refcount(1), int_val(0) {}
+    DataNode() : type(DataType::Null), version(0), refcount(1), int_val(0) {}
     ~DataNode() {} // no-op — caller must use Decref()
 
     DataNode(const DataNode&) = delete;

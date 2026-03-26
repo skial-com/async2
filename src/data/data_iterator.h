@@ -21,10 +21,11 @@ public:
     IteratorType Type() const { return type_; }
 
 private:
-    DataIterator() : type_(IteratorType::Object), node_(nullptr) {}
+    DataIterator() : type_(IteratorType::Object), node_(nullptr), version_(0) {}
 
     IteratorType type_;
     DataNode* node_;                  // container being iterated (refcount incremented)
+    uint32_t version_;                // snapshot of node_->version at last Next()
 
     union {
         ObjIterType obj_iter_;

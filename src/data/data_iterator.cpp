@@ -5,6 +5,7 @@ DataIterator* DataIterator::CreateObject(DataNode* node) {
     auto* it = new DataIterator();
     it->type_ = IteratorType::Object;
     it->node_ = node;
+    it->version_ = node->version;
     node->Incref();
     new (&it->obj_iter_) decltype(it->obj_iter_)(node->obj.begin());
     return it;
@@ -15,6 +16,7 @@ DataIterator* DataIterator::CreateIntMap(DataNode* node) {
     auto* it = new DataIterator();
     it->type_ = IteratorType::IntMap;
     it->node_ = node;
+    it->version_ = node->version;
     node->Incref();
     new (&it->intmap_iter_) decltype(it->intmap_iter_)(node->intmap.begin());
     return it;
@@ -30,6 +32,8 @@ DataIterator::~DataIterator() {
 }
 
 bool DataIterator::Next() {
+    if (node_->version != version_)
+        return false;  // container mutated — iterator invalidated
     if (type_ == IteratorType::Object) {
         if (obj_iter_ == node_->obj.end())
             return false;
