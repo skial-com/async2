@@ -107,7 +107,11 @@ static cell_t Native_SetBodyString(IPluginContext* pContext, const cell_t* param
 }
 
 static cell_t Native_SetBodyJSON(IPluginContext* pContext, const cell_t* params) {
-    GET_HTTP_REQUEST()
+    HttpRequest* request = g_handle_manager.GetHttpRequest(params[1]);
+    if (!request || request->in_event_thread) {
+        g_handle_manager.FreeHandle(params[2]);
+        return 2;
+    }
 
     DataHandle* json = g_handle_manager.GetDataHandle(params[2]);
     if (!json || !json->node)

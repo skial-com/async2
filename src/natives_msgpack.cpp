@@ -77,8 +77,10 @@ static cell_t Native_MsgPackSerialize(IPluginContext* pContext, const cell_t* pa
 // async2_SetBodyMsgPack(WebRequest request, Json handle) -> int
 static cell_t Native_SetBodyMsgPack(IPluginContext* pContext, const cell_t* params) {
     HttpRequest* request = g_handle_manager.GetHttpRequest(params[1]);
-    if (!request || request->in_event_thread)
+    if (!request || request->in_event_thread) {
+        g_handle_manager.FreeHandle(params[2]);
         return 2;
+    }
 
     DataHandle* json = g_handle_manager.GetDataHandle(params[2]);
     if (!json || !json->node)

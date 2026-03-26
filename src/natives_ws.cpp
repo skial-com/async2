@@ -222,7 +222,10 @@ static cell_t Native_WsSetOption(IPluginContext* pContext, const cell_t* params)
 
 static cell_t WsSendNode(const cell_t* params, WsOpType type) {
     WsConnection* conn = g_handle_manager.GetWsSocket(params[1]);
-    if (!conn) return 2;
+    if (!conn) {
+        g_handle_manager.FreeHandle(params[2]);
+        return 2;
+    }
 
     DataHandle* dh = g_handle_manager.GetDataHandle(params[2]);
     if (!dh || !dh->node) return 2;
