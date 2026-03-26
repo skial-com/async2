@@ -25,6 +25,7 @@
 extern const char* g_compile_time;   // from compile_time.cpp
 extern const char* g_build_info;     // from compile_time.cpp
 extern const char* g_deps_version;   // from compile_time.cpp
+extern int g_async2_api_version;     // from natives_utils.cpp
 
 HandleManager g_handle_manager;
 EventLoop g_event_loop;
@@ -499,7 +500,7 @@ void Async2Extension::OnRootConsoleCommand(const char *cmdname, const ICommandAr
     const char *subcmd = args->ArgC() >= 3 ? args->Arg(2) : "";
 
     if (strcmp(subcmd, "version") == 0) {
-        rootconsole->ConsolePrint("  %s (compiled %s)", g_build_info, g_compile_time);
+        rootconsole->ConsolePrint("  %s (API %d, compiled %s)", g_build_info, g_async2_api_version, g_compile_time);
         rootconsole->ConsolePrint("  %s", curl_version());
         rootconsole->ConsolePrint("  %s", g_deps_version);
     } else if (strcmp(subcmd, "mem") == 0) {
