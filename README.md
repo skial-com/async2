@@ -4,10 +4,6 @@ The last networking extension you will need for sourcemod hopefully.
 
 Windows and Linux support, both x86 and x64. Any engine.
 
-## CURRENTLY IN ALPHA
-
-The Json API is currently being changed to make it as perfect as possible. DO NOT USE IN production. This message will be removed when the API is stable.
-
 ## Features
 
 - **HTTP/S** — requests with HTTP/2, HTTPS, automatic decompression (gzip/brotli), retry with exponential backoff, connection pooling
@@ -34,7 +30,7 @@ Custom all-purpose data structure for speed. No weaknesses in any spot unlike th
 
 | Benchmark | async2 | yyjson | simdjson | jansson |
 |---|--:|--:|--:|--:|
-| parse only | 53.9 us | 8.7 us | 864.7 ns | 250.9 us |
+| parse only | 55.0 us | 8.7 us | 864.7 ns | 250.9 us |
 | obj[10] random key access | 4.6 ns | 16.3 ns | N/A | 7.1 ns |
 | obj[50] random key access | 5.3 ns | 38.1 ns | N/A | 12.7 ns |
 | obj[1000] random key access | 9.7 ns | 653.5 ns | N/A | 14.4 ns |
