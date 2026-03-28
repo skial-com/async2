@@ -59,16 +59,18 @@ DataNode* DataNode::MakeArray() {
 }
 
 DataNode* DataNode::MakeObject() {
+    auto* m = new DataMap<std::string, DataNode*>();
     auto* n = new (g_pool.Alloc()) DataNode();
     n->type = DataType::Object;
-    n->obj_ptr = new DataMap<std::string, DataNode*>();
+    n->obj_ptr = m;
     return n;
 }
 
 DataNode* DataNode::MakeIntMap() {
+    auto* m = new DataMap<int64_t, DataNode*>();
     auto* n = new (g_pool.Alloc()) DataNode();
     n->type = DataType::IntMap;
-    n->intmap_ptr = new DataMap<int64_t, DataNode*>();
+    n->intmap_ptr = m;
     return n;
 }
 
