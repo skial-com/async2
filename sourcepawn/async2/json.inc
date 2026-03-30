@@ -186,7 +186,7 @@ native Json async2_JsonRef(Json jsonHandle);
 // Returns a new independent JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonCopy(Json jsonHandle);
 
-// Returns 1 on success, 0 on failure.
+// Returns string length on success, 0 on failure.
 // Set pretty to true for indented, human-readable output.
 native int async2_JsonSerialize(Json jsonHandle, char[] buf, int maxlen, bool pretty = false);
 
@@ -534,8 +534,8 @@ methodmap Json __nullable__ {
         return view_as<Json>(async2_JsonCopy(this));
     }
 
-    public bool Serialize(char[] buf, int maxlen, bool pretty = false) {
-        return async2_JsonSerialize(this, buf, maxlen, pretty) != 0;
+    public int Serialize(char[] buf, int maxlen, bool pretty = false) {
+        return async2_JsonSerialize(this, buf, maxlen, pretty);
     }
 
     public int GetBuffer(char[] buffer, int maxlen, int offset = 0) {

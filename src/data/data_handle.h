@@ -102,7 +102,7 @@ public:
     void ArrayAppendNull();
 
     // Serialize
-    bool Serialize(char* buf, size_t maxlen, bool pretty = false) const;
+    size_t Serialize(char* buf, size_t maxlen, bool pretty = false) const;
     std::string SerializeToString(bool pretty = false) const;
 };
 

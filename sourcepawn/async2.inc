@@ -161,4 +161,6 @@ public void __ext_async2_SetNTVOptional()
 
     // API version 4: SetBodyJSON/SetBodyMsgPack/WsSendJson/WsSendMsgPack
     // always DeepCopy (no new natives, behavior change only)
+
+    // API version 5: JsonSerialize returns string length instead of 1
 }

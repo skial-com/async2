@@ -841,9 +841,7 @@ static cell_t Native_JsonSerialize(IPluginContext* pContext, const cell_t* param
     pContext->LocalToString(params[2], &buffer);
     int maxlen = params[3];
     bool pretty = (params[0] >= 4) ? (params[4] != 0) : false;
-    if (!json->Serialize(buffer, maxlen, pretty))
-        return 0;
-    return 1;
+    return static_cast<cell_t>(json->Serialize(buffer, maxlen, pretty));
 }
 
 // Path getters — vararg traversal, silent failure

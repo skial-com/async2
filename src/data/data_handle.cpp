@@ -342,15 +342,15 @@ void DataHandle::ArrayAppendNull() {
 }
 
 // Serialize
-bool DataHandle::Serialize(char* buf, size_t maxlen, bool pretty) const {
+size_t DataHandle::Serialize(char* buf, size_t maxlen, bool pretty) const {
     if (!node || maxlen == 0)
-        return false;
+        return 0;
 
     std::string s = DataSerializeJson(*node, pretty);
     size_t copy_len = s.size() < maxlen - 1 ? s.size() : maxlen - 1;
     memcpy(buf, s.data(), copy_len);
     buf[copy_len] = '\0';
-    return true;
+    return copy_len;
 }
 
 std::string DataHandle::SerializeToString(bool pretty) const {
