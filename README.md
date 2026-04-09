@@ -80,6 +80,8 @@ public void OnPluginStart()
 
 void OnResponse(WebRequest req, int curlcode, int httpcode, int size)
 {
+    // req is closed for you after this function returns
+
     if (curlcode != 0) {
         char error[CURL_ERROR_SIZE];
         req.GetErrorMessage(error, sizeof(error));
