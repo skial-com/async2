@@ -525,6 +525,7 @@ static cell_t Native_IterGetInt(IPluginContext* pContext, const cell_t* params) 
     DataNode* v = iter->Value();
     if (v->type == DataType::Int) return static_cast<cell_t>(v->int_val);
     if (v->type == DataType::Float) return static_cast<cell_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
     return 0;
 }
 
@@ -535,6 +536,7 @@ static cell_t Native_IterGetInt64(IPluginContext* pContext, const cell_t* params
     int64_t val = 0;
     if (v->type == DataType::Int) val = v->int_val;
     else if (v->type == DataType::Float) val = static_cast<int64_t>(v->float_val);
+    else if (v->type == DataType::Bool) val = v->bool_val ? 1 : 0;
     cell_t* out;
     pContext->LocalToPhysAddr(params[2], &out);
     WriteInt64(out, val);
@@ -548,6 +550,7 @@ static cell_t Native_IterGetFloat(IPluginContext* pContext, const cell_t* params
     float result = 0.0f;
     if (v->type == DataType::Float) result = static_cast<float>(v->float_val);
     else if (v->type == DataType::Int) result = static_cast<float>(v->int_val);
+    else if (v->type == DataType::Bool) result = v->bool_val ? 1.0f : 0.0f;
     return sp_ftoc(result);
 }
 
@@ -556,6 +559,8 @@ static cell_t Native_IterGetBool(IPluginContext* pContext, const cell_t* params)
     if (!iter || !iter->Value()) return 0;
     DataNode* v = iter->Value();
     if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
+    if (v->type == DataType::Int) return v->int_val != 0 ? 1 : 0;
+    if (v->type == DataType::Float) return v->float_val != 0.0 ? 1 : 0;
     return 0;
 }
 
@@ -852,6 +857,7 @@ static cell_t Native_JsonPathGetInt(IPluginContext* pContext, const cell_t* para
     if (!target) return 0;
     if (target->type == DataType::Int) return static_cast<cell_t>(target->int_val);
     if (target->type == DataType::Float) return static_cast<cell_t>(target->float_val);
+    if (target->type == DataType::Bool) return target->bool_val ? 1 : 0;
     return 0;
 }
 
@@ -864,6 +870,7 @@ static cell_t Native_JsonPathGetInt64(IPluginContext* pContext, const cell_t* pa
     if (target) {
         if (target->type == DataType::Int) val = target->int_val;
         else if (target->type == DataType::Float) val = static_cast<int64_t>(target->float_val);
+        else if (target->type == DataType::Bool) val = target->bool_val ? 1 : 0;
     }
     cell_t* out;
     pContext->LocalToPhysAddr(params[2], &out);
@@ -879,6 +886,7 @@ static cell_t Native_JsonPathGetFloat(IPluginContext* pContext, const cell_t* pa
     float val = 0.0f;
     if (target->type == DataType::Float) val = static_cast<float>(target->float_val);
     else if (target->type == DataType::Int) val = static_cast<float>(target->int_val);
+    else if (target->type == DataType::Bool) val = target->bool_val ? 1.0f : 0.0f;
     return sp_ftoc(val);
 }
 
@@ -888,6 +896,8 @@ static cell_t Native_JsonPathGetBool(IPluginContext* pContext, const cell_t* par
     DataNode* target = ResolveJsonPath(pContext, json->node, params, 2, path_count);
     if (!target) return 0;
     if (target->type == DataType::Bool) return target->bool_val ? 1 : 0;
+    if (target->type == DataType::Int) return target->int_val != 0 ? 1 : 0;
+    if (target->type == DataType::Float) return target->float_val != 0.0 ? 1 : 0;
     return 0;
 }
 

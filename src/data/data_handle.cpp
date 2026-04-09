@@ -63,6 +63,7 @@ int64_t DataHandle::GetInt(const char* key) const {
     if (!v) return 0;
     if (v->type == DataType::Int) return v->int_val;
     if (v->type == DataType::Float) return static_cast<int64_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
     return 0;
 }
 
@@ -72,14 +73,18 @@ double DataHandle::GetFloat(const char* key) const {
     if (!v) return 0.0;
     if (v->type == DataType::Float) return v->float_val;
     if (v->type == DataType::Int) return static_cast<double>(v->int_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1.0 : 0.0;
     return 0.0;
 }
 
 bool DataHandle::GetBool(const char* key) const {
     if (!node) return false;
     const DataNode* v = node->ObjFind(key);
-    if (!v || v->type != DataType::Bool) return false;
-    return v->bool_val;
+    if (!v) return false;
+    if (v->type == DataType::Bool) return v->bool_val;
+    if (v->type == DataType::Int) return v->int_val != 0;
+    if (v->type == DataType::Float) return v->float_val != 0.0;
+    return false;
 }
 
 DataNode* DataHandle::GetObjectNode(const char* key) const {
@@ -109,6 +114,7 @@ int64_t DataHandle::ArrayGetInt(size_t index) const {
     const DataNode* v = node->Arr()[index];
     if (v->type == DataType::Int) return v->int_val;
     if (v->type == DataType::Float) return static_cast<int64_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
     return 0;
 }
 
@@ -117,14 +123,17 @@ double DataHandle::ArrayGetFloat(size_t index) const {
     const DataNode* v = node->Arr()[index];
     if (v->type == DataType::Float) return v->float_val;
     if (v->type == DataType::Int) return static_cast<double>(v->int_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1.0 : 0.0;
     return 0.0;
 }
 
 bool DataHandle::ArrayGetBool(size_t index) const {
     if (!node || node->type != DataType::Array || index >= node->Arr().size()) return false;
     const DataNode* v = node->Arr()[index];
-    if (v->type != DataType::Bool) return false;
-    return v->bool_val;
+    if (v->type == DataType::Bool) return v->bool_val;
+    if (v->type == DataType::Int) return v->int_val != 0;
+    if (v->type == DataType::Float) return v->float_val != 0.0;
+    return false;
 }
 
 DataNode* DataHandle::ArrayGetNode(size_t index) const {
@@ -147,6 +156,7 @@ int64_t DataHandle::IntMapGetInt(int64_t key) const {
     if (!v) return 0;
     if (v->type == DataType::Int) return v->int_val;
     if (v->type == DataType::Float) return static_cast<int64_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
     return 0;
 }
 
@@ -156,14 +166,18 @@ double DataHandle::IntMapGetFloat(int64_t key) const {
     if (!v) return 0.0;
     if (v->type == DataType::Float) return v->float_val;
     if (v->type == DataType::Int) return static_cast<double>(v->int_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1.0 : 0.0;
     return 0.0;
 }
 
 bool DataHandle::IntMapGetBool(int64_t key) const {
     if (!node) return false;
     const DataNode* v = node->IntMapFind(key);
-    if (!v || v->type != DataType::Bool) return false;
-    return v->bool_val;
+    if (!v) return false;
+    if (v->type == DataType::Bool) return v->bool_val;
+    if (v->type == DataType::Int) return v->int_val != 0;
+    if (v->type == DataType::Float) return v->float_val != 0.0;
+    return false;
 }
 
 DataNode* DataHandle::IntMapGetObjectNode(int64_t key) const {
