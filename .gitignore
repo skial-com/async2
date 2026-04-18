@@ -18,6 +18,8 @@ test/bench_maps
 test/bench_ptr
 test/test_json_parser
 test/test_msgpack
+test/Makefile
+test/build_timestamp.h
 
 
 # Built static libraries
