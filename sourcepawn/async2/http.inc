@@ -53,7 +53,7 @@ native int async2_HttpClose(WebRequest handle);
  *                  With SetResponseType: function void(WebRequest req, int curlcode, int httpcode, Json data[, any userdata])
  * @return          0 on success, 2 if invalid or in-flight handle.
  */
-native int async2_HttpExecute(WebRequest handle, const char[] method, const char[] url, WebCallback callback);
+native int async2_HttpExecute(WebRequest handle, const char[] method, const char[] url, WebCallback callback = INVALID_FUNCTION);
 
 /**
  * Sets the request body from raw bytes. Use for binary data.
@@ -297,7 +297,7 @@ methodmap WebRequest __nullable__ {
         async2_SetHandlePlugin(view_as<int>(this), INVALID_HANDLE);
     }
 
-    public void Execute(const char[] method, const char[] url, WebCallback cb) {
+    public void Execute(const char[] method, const char[] url, WebCallback cb = INVALID_FUNCTION) {
         async2_HttpExecute(this, method, url, cb);
     }
 

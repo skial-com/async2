@@ -310,6 +310,16 @@ public int Native_CopyJson(Handle callingPlugin, int numParams)
     return view_as<int>(copy);
 }
 
+// want to send a request when the plugin ends but the handle gets closed?
+// use SetHandlePlugin to detatch it from the plugin. It will continue working and close itself when done.
+
+public void OnPluginEnd() 
+{
+    WebRequest req = async2_HttpNew();
+    req.Execute("GET", "https://example.com/", OnDone); // OnDone doesn't fire if plugin is unloaded. You can also use INVALID_FUNCTION
+    async2_SetHandlePlugin(req);
+}
+
 ```
 
 ### Coming from async
