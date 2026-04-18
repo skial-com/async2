@@ -2,34 +2,34 @@
 // Note: Cross-plugin behavior can't be tested within a single plugin.
 // These tests verify the API works on same-plugin handles.
 
-void Test_SetHandlePlugin_Json() {
+void Test_SetHandlePlugin_DetachRejectsJson() {
+    // INVALID_HANDLE target means detach — HTTP only, so Json rejects with 0.
     Json obj = Json.CreateObject();
     obj.SetInt("x", 42);
 
-    int result = async2_SetHandlePlugin(view_as<int>(obj));
-    AssertEq(result, 1, "SetHandlePlugin on Json returns 1");
+    int result = async2_SetHandlePlugin(view_as<int>(obj), INVALID_HANDLE);
+    AssertEq(result, 0, "SetHandlePlugin(Json, INVALID_HANDLE) returns 0 (detach is HTTP-only)");
 
-    // Handle still works after transfer to same plugin
-    AssertEq(obj.GetInt("x"), 42, "Json still readable after SetHandlePlugin");
+    // Handle unaffected
+    AssertEq(obj.GetInt("x"), 42, "Json still readable after failed detach");
 
     obj.Close();
 }
 
-void Test_SetHandlePlugin_LinkedList() {
+void Test_SetHandlePlugin_DetachRejectsLinkedList() {
     LinkedList list = LinkedList.Create();
     list.PushBack(10);
 
-    int result = async2_SetHandlePlugin(view_as<int>(list));
-    AssertEq(result, 1, "SetHandlePlugin on LinkedList returns 1");
+    int result = async2_SetHandlePlugin(view_as<int>(list), INVALID_HANDLE);
+    AssertEq(result, 0, "SetHandlePlugin(LinkedList, INVALID_HANDLE) returns 0 (detach is HTTP-only)");
 
-    // Handle still works
-    AssertEq(list.Size, 1, "LinkedList still readable after SetHandlePlugin");
+    AssertEq(list.Size, 1, "LinkedList still readable after failed detach");
 
     list.Close();
 }
 
 void Test_SetHandlePlugin_InvalidHandle() {
-    int result = async2_SetHandlePlugin(99999);
+    int result = async2_SetHandlePlugin(99999, INVALID_HANDLE);
     AssertEq(result, 0, "SetHandlePlugin on invalid handle returns 0");
 }
 
@@ -37,8 +37,19 @@ void Test_SetHandlePlugin_ClosedHandle() {
     Json obj = Json.CreateObject();
     obj.Close();
 
-    int result = async2_SetHandlePlugin(view_as<int>(obj));
+    int result = async2_SetHandlePlugin(view_as<int>(obj), INVALID_HANDLE);
     AssertEq(result, 0, "SetHandlePlugin on closed handle returns 0");
+}
+
+void Test_HttpDetach() {
+    WebRequest req = async2_HttpNew();
+    Assert(view_as<int>(req) != 0, "HttpNew succeeds");
+
+    int result = async2_SetHandlePlugin(view_as<int>(req), INVALID_HANDLE);
+    AssertEq(result, 1, "Detach on HTTP handle returns 1");
+
+    // Detached handle is still valid for Close (cleans up since never executed).
+    req.Close();
 }
 
 void Test_JsonCopy_IndependentOwnership() {
@@ -213,10 +224,11 @@ void Test_SetObject_ChildHandleShare() {
 // by the fact that the server doesn't crash if triggered accidentally.
 
 void RunHandleTests() {
-    Test_SetHandlePlugin_Json();
-    Test_SetHandlePlugin_LinkedList();
+    Test_SetHandlePlugin_DetachRejectsJson();
+    Test_SetHandlePlugin_DetachRejectsLinkedList();
     Test_SetHandlePlugin_InvalidHandle();
     Test_SetHandlePlugin_ClosedHandle();
+    Test_HttpDetach();
     Test_JsonCopy_IndependentOwnership();
     Test_SetObject_MovesChild();
     Test_SetObject_DataAccessible();

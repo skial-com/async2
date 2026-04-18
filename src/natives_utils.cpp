@@ -13,7 +13,7 @@
 
 // Bump when the include needs to detect new runtime behavior.
 // Also referenced by extension.cpp for "sm async2 version" output.
-int g_async2_api_version = 6;
+int g_async2_api_version = 7;
 
 static cell_t Native_GetVersion(IPluginContext*, const cell_t*) {
     return g_async2_api_version;
@@ -117,8 +117,12 @@ static cell_t Native_GetHandleCount(IPluginContext* pContext, const cell_t* para
 }
 
 // async2_SetHandlePlugin(int handle, Handle plugin = INVALID_HANDLE) -> int
+//
+// - plugin == INVALID_HANDLE (default or explicit): detach — HTTP only. Request
+//   runs to completion; callback is skipped if the plugin has unloaded by then.
+// - plugin == valid plugin handle: transfer cleanup ownership to that plugin.
 static cell_t Native_SetHandlePlugin(IPluginContext* pContext, const cell_t* params) {
-    IPluginContext* target = pContext;
+    IPluginContext* target = nullptr;  // detach by default
 
     if (params[0] >= 2 && params[2] != 0) {
         HandleError err;
@@ -126,6 +130,14 @@ static cell_t Native_SetHandlePlugin(IPluginContext* pContext, const cell_t* par
         if (!plugin || err != HandleError_None)
             return 0;
         target = plugin->GetBaseContext();
+    }
+
+    // Detach restricted to HTTP: sockets have no natural completion and would leak.
+    if (target == nullptr) {
+        auto& handles = g_handle_manager.GetHandles();
+        auto it = handles.find(params[1]);
+        if (it == handles.end() || it->second.type != HANDLE_HTTP_REQUEST)
+            return 0;
     }
 
     return g_handle_manager.TransferHandle(params[1], target) ? 1 : 0;

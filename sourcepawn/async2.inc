@@ -163,4 +163,9 @@ public void __ext_async2_SetNTVOptional()
     // always DeepCopy (no new natives, behavior change only)
 
     // API version 5: JsonSerialize returns string length instead of 1
+
+    // API version 6: type coercion in Json getters (no new natives)
+
+    // API version 7: SetHandlePlugin(h, INVALID_HANDLE) detaches the handle
+    // from plugin ownership (HTTP only). No new natives.
 }

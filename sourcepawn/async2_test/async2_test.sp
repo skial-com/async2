@@ -54,6 +54,8 @@ public void OnPluginStart() {
 
     ConVar sv_cheats = FindConVar("sv_cheats");
     sv_cheats.BoolValue = true;
+
+    InitDetachReloadTest();
 }
 
 void Assert(bool condition, const char[] name) {
@@ -128,6 +130,7 @@ public Action Timer_FinishAll(Handle timer) {
 #include "test_lru_cache.sp"
 #include "test_time.sp"
 #include "test_handles.sp"
+#include "test_detach_reload.sp"
 
 // ============================================================================
 // Runners

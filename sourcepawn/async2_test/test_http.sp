@@ -1478,6 +1478,56 @@ public void OnHttpJsonParse_RepeatedFail(WebRequest req, int curlcode, int httpc
     MaybeFinishAll();
 }
 
+// Detached HTTP request must run to completion normally — callback fires
+// with real response (curlcode 0), NOT with CURLE_ABORTED_BY_CALLBACK (42).
+// Detach happens on the game thread right after Execute, usually while the
+// request is still in-flight on the event thread. Race outcome doesn't
+// matter: the callback's curlcode is the ground truth.
+void Test_HTTP_Detach_RunsToCompletion() {
+    g_http_pending++;
+    WebRequest req = NewRequest();
+    req.Execute("GET", TEST_URL ... "/json", OnHttpDetach_RunsToCompletion);
+    async2_SetHandlePlugin(view_as<int>(req), INVALID_HANDLE);
+}
+
+public void OnHttpDetach_RunsToCompletion(WebRequest req, int curlcode, int httpcode, int size) {
+    g_http_pending--;
+    AssertEq(curlcode, 0, "Detached HTTP completes normally (curlcode 0, not 42)");
+    AssertEq(httpcode, 200, "Detached HTTP httpcode 200");
+    Assert(size > 0, "Detached HTTP has body");
+
+    Json json = Json.ParseResponse(req);
+    Assert(view_as<int>(json) != 0, "Detached HTTP body is valid JSON");
+
+    char name[64];
+    json.GetString("name", name, sizeof(name));
+    AssertStrEq(name, "async2", "Detached HTTP json.name is real response");
+
+    json.Close();
+    MaybeFinishAll();
+}
+
+// Detach on an in-flight slow request — guarantees the detach races against
+// an actual in-flight request (not completion). Auto-free is implicit: the
+// test would hang or leak a handle if the request wasn't properly cleaned up.
+void Test_HTTP_Detach_SlowInFlight() {
+    g_http_pending++;
+    WebRequest req = NewRequest();
+    req.SetOptInt(CURLOPT_TIMEOUT_MS, 5000);
+    req.Execute("GET", TEST_URL ... "/slow", OnHttpDetach_SlowInFlight);
+
+    // Guaranteed in-flight here — /slow sleeps server-side before responding.
+    int result = async2_SetHandlePlugin(view_as<int>(req), INVALID_HANDLE);
+    AssertEq(result, 1, "Detach on in-flight slow request returns 1");
+}
+
+public void OnHttpDetach_SlowInFlight(WebRequest req, int curlcode, int httpcode, int size) {
+    g_http_pending--;
+    AssertEq(curlcode, 0, "Detached in-flight /slow completes normally");
+    AssertEq(httpcode, 200, "Detached in-flight /slow httpcode 200");
+    MaybeFinishAll();
+}
+
 void RunHttpTests() {
     // Synchronous tests (no network)
     Test_HTTP_Version();
@@ -1548,4 +1598,8 @@ void RunHttpTests() {
     Test_HTTP_SetBodyJSON_CloseNoExecute();
     Test_HTTP_SetResponseType_Large();
     Test_HTTP_JsonParse_RepeatedFail();
+
+    // Detach: request must run to completion, not be canceled.
+    Test_HTTP_Detach_RunsToCompletion();
+    Test_HTTP_Detach_SlowInFlight();
 }

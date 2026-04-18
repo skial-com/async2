@@ -28,6 +28,8 @@
 //   GET  /multi-redirect   — 302 chain: /multi-redirect -> /redirect -> /get
 //   POST /stress           — echoes back a sequence number and request body size
 //   POST /msgpack-echo     — echoes raw body back as application/x-msgpack
+//   GET  /counter          — returns current detach-test counter value
+//   POST /counter/increment — sleeps 1s then increments counter (for reload race test)
 package main
 
 import (
@@ -57,6 +59,7 @@ import (
 )
 
 var stressCounter atomic.Int64
+var detachCounter atomic.Int64
 
 func sendJSON(w http.ResponseWriter, data any, status int) {
 	body, _ := json.Marshal(data)
@@ -154,6 +157,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 				"compressed": true, "encoding": "gzip", "data": "hello gzip",
 			})
 
+		case path == "/counter":
+			sendJSON(w, map[string]any{"counter": detachCounter.Load()}, 200)
+
 		default:
 			sendJSON(w, map[string]any{"error": "not found"}, 404)
 		}
@@ -186,6 +192,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 			w.WriteHeader(200)
 			w.Write(body)
+
+		case path == "/counter/increment":
+			// Sleep so detach reload test can race the in-flight request.
+			time.Sleep(1 * time.Second)
+			val := detachCounter.Add(1)
+			sendJSON(w, map[string]any{"counter": val}, 200)
 
 		case path == "/stress":
 			seq := stressCounter.Add(1)

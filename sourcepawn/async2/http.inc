@@ -293,6 +293,10 @@ methodmap WebRequest __nullable__ {
         async2_HttpClose(this);
     }
 
+    public void Detach() {
+        async2_SetHandlePlugin(view_as<int>(this), INVALID_HANDLE);
+    }
+
     public void Execute(const char[] method, const char[] url, WebCallback cb) {
         async2_HttpExecute(this, method, url, cb);
     }

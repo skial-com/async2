@@ -210,15 +210,27 @@ native int async2_GetVss();
 native int async2_GetHandleCount();
 
 /**
- * Transfers cleanup ownership of a handle to another plugin.
- * When that plugin unloads, the handle will be cleaned up automatically.
- * Does not affect callbacks — HTTP/socket callbacks still fire into
- * the plugin that created the handle.
+ * Transfers cleanup ownership of a handle to another plugin, or detaches it.
+ *
+ * When the owning plugin unloads, owned handles are cleaned up automatically.
+ * Detaching (passing INVALID_HANDLE) removes that link: the handle survives
+ * plugin unload and runs to completion on its own. Intended for fire-and-
+ * forget HTTP requests from OnPluginEnd (final telemetry, shutdown webhook).
+ *
+ * Does not affect callbacks directly — HTTP/socket callbacks still target the
+ * plugin that created the handle. However, if the plugin has unloaded by the
+ * time a detached request completes, the callback is silently skipped and the
+ * handle is auto-freed.
+ *
+ * Detach is HTTP-only: sockets have no natural completion and would leak.
+ * Pass a valid plugin handle to transfer ownership to another plugin for
+ * non-HTTP handles.
  *
  * @param handle    Any async2 handle (WebRequest, Json, TcpSocket, etc.).
- * @param plugin    Target plugin handle. INVALID_HANDLE = calling plugin.
- *                  In CreateNative handlers, pass the callingPlugin parameter
- *                  to transfer ownership to the caller.
- * @return          1 on success, 0 if handle or plugin is invalid.
+ * @param plugin    Target plugin handle, or INVALID_HANDLE to detach (HTTP only).
+ *                  In CreateNative handlers, pass callingPlugin to transfer to
+ *                  the caller.
+ * @return          1 on success, 0 if invalid handle, invalid plugin, or detach
+ *                  was requested on a non-HTTP handle.
  */
 native int async2_SetHandlePlugin(int handle, Handle plugin = INVALID_HANDLE);
