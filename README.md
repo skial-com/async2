@@ -317,7 +317,7 @@ public void OnPluginEnd()
 {
     WebRequest req = async2_HttpNew();
     req.Execute("GET", "https://example.com/", OnDone); // OnDone doesn't fire if plugin is unloaded. You can also use INVALID_FUNCTION
-    async2_SetHandlePlugin(req);
+    req.Detach();
 }
 
 ```
