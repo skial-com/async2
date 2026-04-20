@@ -187,13 +187,14 @@ native int async2_SetOwner(WebRequest handle, int client);
  * Use with the Json data callback overload:
  *   function void(WebRequest req, int curlcode, int httpcode, Json data[, any userdata])
  *
- * The Json handle is owned by the callback — close it with JsonClose() when done.
+ * Usage rule:
+ *   - If curlcode != 0, data is always null — do nothing.
+ *   - Otherwise, data may still be null (parse failed or empty body). Check before
+ *     using, and close it with data.Close() when done if not null.
+ *
  * Parsing runs regardless of HTTP status — a 404/500 with a valid JSON body still
  * delivers a Json handle; check httpcode to distinguish success from error responses.
- * data is INVALID_HANDLE_VALUE (0) when: parsing failed, response body was empty,
- * curlcode != 0 (network/curl error), or Close()-cancel (curlcode 42). The Json-data
- * callback signature is always used once SetResponseType > 0. Raw body is accessible
- * via GetString/GetRawData in every case except curlcode 42 (handle already invalid).
+ * The raw body is always readable via GetString/GetRawData (except when curlcode != 0).
  *
  * @param mode  RESPONSE_RAW (0, default), RESPONSE_JSON (1), or RESPONSE_MSGPACK (2).
  * @return      0 on success, 1 if invalid mode, 2 if invalid or in-flight handle.

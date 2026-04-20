@@ -107,7 +107,10 @@ public void OnPluginStart()
 
 void OnJsonResponse(WebRequest req, int curlcode, int httpcode, Json data)
 {
-    if (curlcode != 0 || data == null) return;
+    // Rule: if curlcode != 0, data is null — nothing to do.
+    // Otherwise check if null (parse failed / empty body), and Close() if not.
+    if (curlcode != 0) return;
+    if (data == null) return;  // body wasn't valid JSON
 
     // Deep path access — no intermediate handles needed
     char name[64];
