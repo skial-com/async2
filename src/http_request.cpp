@@ -227,19 +227,24 @@ void HttpRequest::OnCompletedGameThread() {
         size = response_body.size();
     }
 
-    if (parse_mode > 0 && !handle_closed) {
-        // Simplified callback: push Json handle instead of size
-        DataNode* node = response_node;
-        response_node = nullptr;
+    if (parse_mode > 0) {
+        // Simplified callback: push Json handle instead of size.
+        // On cancel (handle_closed), skip parsing — callback still fires with
+        // the Json-data signature (data=0, curlcode=42) for signature consistency.
+        DataNode* node = nullptr;
+        if (!handle_closed) {
+            node = response_node;
+            response_node = nullptr;
 
-        // Fallback: event-thread parse failed, try game thread
-        if (!node && curlcode == CURLE_OK && !response_body.empty()) {
-            if (parse_mode == 1)
-                node = DataParseJson(response_body.data(), response_body.size());
-            else if (parse_mode == 2)
-                node = MsgPackParse(
-                    reinterpret_cast<const uint8_t*>(response_body.data()),
-                    response_body.size());
+            // Fallback: event-thread parse failed, try game thread
+            if (!node && curlcode == CURLE_OK && !response_body.empty()) {
+                if (parse_mode == 1)
+                    node = DataParseJson(response_body.data(), response_body.size());
+                else if (parse_mode == 2)
+                    node = MsgPackParse(
+                        reinterpret_cast<const uint8_t*>(response_body.data()),
+                        response_body.size());
+            }
         }
 
         int json_handle = 0;

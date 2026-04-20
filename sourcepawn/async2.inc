@@ -168,4 +168,8 @@ public void __ext_async2_SetNTVOptional()
 
     // API version 7: SetHandlePlugin(h, INVALID_HANDLE) detaches the handle
     // from plugin ownership (HTTP only). No new natives.
+
+    // API version 8: SetResponseType callback fires with Json-data signature
+    // on Close()-cancel too (curlcode 42, data=0) instead of reverting to the
+    // raw size signature. No new natives.
 }

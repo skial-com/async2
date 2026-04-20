@@ -13,7 +13,7 @@
 
 // Bump when the include needs to detect new runtime behavior.
 // Also referenced by extension.cpp for "sm async2 version" output.
-int g_async2_api_version = 7;
+int g_async2_api_version = 8;
 
 static cell_t Native_GetVersion(IPluginContext*, const cell_t*) {
     return g_async2_api_version;
