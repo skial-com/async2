@@ -560,7 +560,7 @@ void EventLoop::CheckCompletedJobs() {
                     conn->curl_handle = nullptr;
                     conn->state = WsState::CLOSED;
                     ws_connections_.erase(conn->handle_id);
-                    PushSocketEvent(evt);
+                    PushWsClosedOnce(conn, evt);
                     continue;
                 }
 
@@ -802,6 +802,21 @@ void EventLoop::PushSocketEvent(SocketEvent* evt) {
     socket_done_queue.Lock();
     socket_done_queue.Push(evt);
     socket_done_queue.Unlock();
+}
+
+// Push a WS_CLOSED event exactly once per WsConnection lifetime. Multiple
+// paths (curl completion, poll error, close timeout, reconnect failure,
+// user-initiated close, plugin unload) can all race to observe the same
+// close; without this guard the game thread would FreeHandle the handle
+// twice and — once the id is recycled — delete an unrelated new handle's
+// object. All WS_CLOSED push sites must go through this helper.
+void EventLoop::PushWsClosedOnce(WsConnection* conn, SocketEvent* evt) {
+    if (conn->close_event_pushed_) {
+        delete evt;
+        return;
+    }
+    conn->close_event_pushed_ = true;
+    PushSocketEvent(evt);
 }
 
 // Helper: get peer address string from uv_tcp_t
@@ -1187,6 +1202,14 @@ void EventLoop::ProcessTcpSetOption(TcpOp* op) {
     auto it = tcp_sockets_.find(op->handle_id);
     if (it == tcp_sockets_.end()) return;
     TcpSocket* sock = it->second;
+
+    // TCP_CHUNK_SIZE doesn't need a uv handle — field is consumed only by
+    // the recv callbacks which already check for a live handle.
+    if (op->option_id == 0) {
+        sock->max_chunk_size = op->option_value > 0 ? op->option_value : 4096;
+        return;
+    }
+
     if (!sock->uv_handle) return;
 
     auto* h = reinterpret_cast<uv_handle_t*>(sock->uv_handle);
@@ -1543,7 +1566,7 @@ void EventLoop::ProcessWsClose(WsOp* op) {
         WsStopTimers(conn);
         conn->state = WsState::CLOSED;
         ws_connections_.erase(conn->handle_id);
-        PushSocketEvent(evt);
+        PushWsClosedOnce(conn, evt);
         return;
     }
 
@@ -1575,7 +1598,7 @@ void EventLoop::ProcessWsClose(WsOp* op) {
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
             conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         WsCleanup(conn);
-        PushSocketEvent(evt);
+        PushWsClosedOnce(conn, evt);
     }
 }
 
@@ -1623,7 +1646,7 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
             conn->plugin_context, conn->on_close, conn->userdata, true);
         self->WsCleanup(conn);
-        self->PushSocketEvent(evt);
+        self->PushWsClosedOnce(conn, evt);
         return;
     }
 
@@ -1669,11 +1692,15 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             // If we haven't sent close, send close reply
             if (!conn->close_sent_) {
                 size_t sent;
-                // Echo back the close code
-                uint8_t reply[2];
-                reply[0] = buf[0];
-                reply[1] = (nread >= 2) ? buf[1] : 0;
-                curl_ws_send(conn->curl_handle, reply, nread >= 2 ? 2 : 0, &sent, 0, CURLWS_CLOSE);
+                // Echo back the close code. If nread < 2 the peer sent no code;
+                // reply with an empty close per RFC 6455 rather than echoing
+                // uninitialized stack bytes.
+                if (nread >= 2) {
+                    uint8_t reply[2] = {buf[0], buf[1]};
+                    curl_ws_send(conn->curl_handle, reply, 2, &sent, 0, CURLWS_CLOSE);
+                } else {
+                    curl_ws_send(conn->curl_handle, nullptr, 0, &sent, 0, CURLWS_CLOSE);
+                }
                 conn->close_sent_ = true;
             }
 
@@ -1721,7 +1748,7 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
                 conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
             self->WsCleanup(conn);
-            self->PushSocketEvent(evt);
+            self->PushWsClosedOnce(conn, evt);
             return;
         }
 
@@ -1785,7 +1812,7 @@ void EventLoop::OnWsCloseTimeout(uv_timer_t* handle) {
     auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
         conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
     self->WsCleanup(conn);
-    self->PushSocketEvent(evt);
+    self->PushWsClosedOnce(conn, evt);
 }
 
 void EventLoop::OnWsPingTimer(uv_timer_t* handle) {
@@ -1845,7 +1872,7 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn) {
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
             conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
         WsCleanup(conn);
-        PushSocketEvent(evt);
+        PushWsClosedOnce(conn, evt);
     }
 }
 
@@ -1858,7 +1885,7 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn, int error_code, cons
         evt->error_code = error_code;
         evt->error_msg = error_msg;
         WsCleanup(conn);
-        PushSocketEvent(evt);
+        PushWsClosedOnce(conn, evt);
     }
 }
 
@@ -1922,7 +1949,13 @@ void EventLoop::WsReconnect(WsConnection* conn) {
             conn->plugin_context, conn->on_close, conn->userdata, false);
         conn->state = WsState::CLOSED;
         ws_connections_.erase(conn->handle_id);
-        PushSocketEvent(evt);
+        // TODO: this path teardown is ad-hoc (no WsCleanup/WsStopTimers call).
+        // It's currently safe because the only caller is OnWsReconnectTimer,
+        // which has already cleared reconnect_timer_, and ping/close timers
+        // aren't armed during reconnect. If a new timer type is added to
+        // WsConnection, or a new caller to WsReconnect, this path must be
+        // unified with the WsCleanup contract the other close sites use.
+        PushWsClosedOnce(conn, evt);
     }
 }
 
@@ -1941,7 +1974,7 @@ void EventLoop::OnWsReconnectTimer(uv_timer_t* handle) {
             conn->plugin_context, conn->on_close, conn->userdata, true);
         conn->state = WsState::CLOSED;
         self->ws_connections_.erase(conn->handle_id);
-        self->PushSocketEvent(evt);
+        self->PushWsClosedOnce(conn, evt);
         return;
     }
 

@@ -3,9 +3,8 @@
 
 #include <unordered_map>
 #include <unordered_set>
-#include <queue>
 #include <vector>
-#include <limits>
+#include <cstdint>
 
 namespace SourcePawn { class IPluginContext; }
 using SourcePawn::IPluginContext;
@@ -39,8 +38,13 @@ struct Handle {
 typedef std::unordered_map<int, Handle> HandleMapType;
 
 class HandleManager {
+    // Monotonic id cursor over the full signed int32 range. Wraps from INT_MAX
+    // to INT_MIN via unsigned-overflow arithmetic, skipping 0 (reserved for
+    // "invalid handle"). Unlike immediate FIFO recycling this gives freed ids
+    // a cooldown of ~4B allocations before reuse, so stale references held by
+    // in-flight ops or queued callbacks virtually always resolve to "no such
+    // handle" instead of silently aliasing a new object.
     int next_handle_;
-    std::queue<int> freed_handles_;
     HandleMapType used_handles_;
     std::unordered_map<IPluginContext*, std::unordered_set<int>> plugin_handles_;
 

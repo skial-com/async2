@@ -38,6 +38,9 @@ public:
     funcid_t on_close;
     funcid_t on_accept;   // server mode
     int userdata;
+    // Event-thread-only. Writes go through TcpOpType::SET_OPTION so the game
+    // thread never touches this field directly — see Native_TcpSetOption
+    // and ProcessTcpSetOption.
     int max_chunk_size;
     bool nodelay{false};       // TCP_NODELAY
     bool keepalive{false};     // SO_KEEPALIVE

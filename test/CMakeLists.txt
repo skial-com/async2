@@ -94,6 +94,41 @@ else()
     message(STATUS "Skipping bench_compare (requires jansson and yyjson in third_party/)")
 endif()
 
+# TSan harness — built only when explicitly requested, because it applies
+# -fsanitize=thread and requires gcc's libtsan runtime. Builds a standalone
+# binary that exercises async2's cross-thread primitives (LockedQueue,
+# DataNode refcount, FixedPool) without srcds.
+#
+# Enable with: cmake .. -DASYNC2_BUILD_TSAN_HARNESS=ON
+option(ASYNC2_BUILD_TSAN_HARNESS "Build ThreadSanitizer harness" OFF)
+if(ASYNC2_BUILD_TSAN_HARNESS)
+    add_executable(async2_tsan_harness
+        tsan_harness/main.cpp
+        tsan_harness/scenario_locked_queue.cpp
+        tsan_harness/scenario_datanode_refcount.cpp
+        tsan_harness/scenario_datanode_pool.cpp
+        ${ROOT}/src/data/data_node.cpp
+        ${SIMDJSON}
+    )
+    target_include_directories(async2_tsan_harness PRIVATE
+        ${ROOT}/src
+        ${ROOT}/src/data
+        ${ROOT}/third_party/robin-map/include
+        ${ROOT}/third_party/xxhash
+        ${ROOT}/third_party/simdjson/singleheader
+        ${CMAKE_CURRENT_SOURCE_DIR}/tsan_harness
+    )
+    target_compile_options(async2_tsan_harness PRIVATE
+        -fsanitize=thread
+        -fno-omit-frame-pointer
+        -g
+    )
+    target_link_options(async2_tsan_harness PRIVATE
+        -fsanitize=thread
+    )
+    target_link_libraries(async2_tsan_harness PRIVATE pthread)
+endif()
+
 # Benchmarks — map+hash comparison (optional, requires extra third_party dirs)
 if(EXISTS "${ROOT}/third_party/robin-hood-hashing/src/include")
     add_executable(bench_maps

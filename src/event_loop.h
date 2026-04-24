@@ -177,6 +177,7 @@ private:
     void WsStopTimers(WsConnection* conn);
 
     void PushSocketEvent(SocketEvent* evt);
+    void PushWsClosedOnce(WsConnection* conn, SocketEvent* evt);
 };
 
 class CurlSocketContext {

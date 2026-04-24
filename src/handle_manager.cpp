@@ -69,25 +69,31 @@ DataIterator* HandleManager::GetDataIterator(int handle) {
 }
 
 int HandleManager::CreateHandle(void* pointer, HandleType type, IPluginContext* owner) {
-    int handle_number;
     Handle h;
     h.type = type;
     h.pointer = pointer;
     h.owner = owner;
 
-    if (!freed_handles_.empty()) {
-        handle_number = freed_handles_.front();
-        freed_handles_.pop();
-    } else if (next_handle_ == std::numeric_limits<int>::max()) {
-        return 0;
-    } else {
-        handle_number = next_handle_++;
+    // Scan forward for a free id over the full int32 range. 0 is reserved as
+    // the "invalid handle" sentinel so we skip it; all other values (positive
+    // and negative) are handed out. Unsigned arithmetic is used for the
+    // increment so INT_MAX wraps to INT_MIN without hitting signed UB.
+    // In the common case used_handles_ is sparse and the first probe succeeds.
+    const int start = next_handle_;
+    int candidate = start;
+    while (true) {
+        if (candidate == 0) candidate = 1;  // skip reserved 0
+        if (!used_handles_.count(candidate)) break;
+        candidate = static_cast<int>(static_cast<uint32_t>(candidate) + 1);
+        if (candidate == start) return 0;  // 4B live handles — not realistic
     }
 
-    used_handles_[handle_number] = h;
+    next_handle_ = static_cast<int>(static_cast<uint32_t>(candidate) + 1);
+
+    used_handles_[candidate] = h;
     if (owner)
-        plugin_handles_[owner].insert(handle_number);
-    return handle_number;
+        plugin_handles_[owner].insert(candidate);
+    return candidate;
 }
 
 void HandleManager::RemoveFromPluginSet(IPluginContext* owner, int handle) {
@@ -104,7 +110,6 @@ void HandleManager::FreeHandle(int handle) {
     if (it != used_handles_.end()) {
         if (it->second.owner)
             RemoveFromPluginSet(it->second.owner, handle);
-        freed_handles_.push(it->first);
         DeleteHandlePointer(it->second);
         used_handles_.erase(it);
     }

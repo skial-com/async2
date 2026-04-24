@@ -77,6 +77,11 @@ public:
     bool close_sent_ = false;
     uv_timer_t* close_timer_ = nullptr;
 
+    // Set once a WS_CLOSED event has been enqueued for this connection.
+    // All WS_CLOSED push sites must check this and skip on true, to prevent
+    // the game thread from double-FreeHandle-ing a recycled handle id.
+    bool close_event_pushed_ = false;
+
     // Auto-ping (event thread only)
     uv_timer_t* ping_timer_ = nullptr;
 

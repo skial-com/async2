@@ -141,8 +141,8 @@ static cell_t Native_TcpSetOption(IPluginContext* pContext, const cell_t* params
     bool route_to_event_thread = false;
 
     switch (option) {
-        case 0: // TCP_CHUNK_SIZE
-            sock->max_chunk_size = value > 0 ? value : 4096;
+        case 0: // TCP_CHUNK_SIZE — routed; event thread writes the field
+            route_to_event_thread = true;
             break;
         case 1: // TCP_NODELAY
             sock->nodelay = (value != 0);
