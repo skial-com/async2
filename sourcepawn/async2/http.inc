@@ -80,9 +80,18 @@ native int async2_SetBodyJSON(WebRequest handle, Json jsonHandle);
 /**
  * Enables deflate compression on the request body.
  * Must be called AFTER setting a body. Compression runs on the event thread.
+ *
+ * @param handle   The request handle.
+ * @param compress True to enable deflate compression.
+ * @param minBytes Minimum serialized body size (in bytes) at which to compress.
+ *                 If the body is smaller than this, it is sent uncompressed and
+ *                 no Content-Encoding header is added. Default 0 (compress any
+ *                 non-empty body — original behavior). Useful for skipping the
+ *                 deflate cost on small payloads where compression rarely pays
+ *                 off and can even grow the body.
  * @return  0 on success, 2 if invalid or in-flight handle.
  */
-native int async2_SetCompression(WebRequest handle, bool compress);
+native int async2_SetCompression(WebRequest handle, bool compress, int minBytes = 0);
 
 /**
  * Sets a request header. Replaces any existing header with the same key (case-insensitive).
@@ -358,8 +367,8 @@ methodmap WebRequest __nullable__ {
         json = null;
     }
 
-    public void SetCompression(bool compress) {
-        async2_SetCompression(this, compress);
+    public void SetCompression(bool compress, int minBytes = 0) {
+        async2_SetCompression(this, compress, minBytes);
     }
 
     public void SetHeader(const char[] key, const char[] value) {

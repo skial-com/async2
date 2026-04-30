@@ -29,6 +29,7 @@ public:
     std::string method;
     std::string post_body;
     bool compress_body;
+    size_t compress_min_size = 0;
     IPluginContext* plugin_context;
     funcid_t callback_id;
     int handle_id;

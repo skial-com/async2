@@ -172,4 +172,10 @@ public void __ext_async2_SetNTVOptional()
     // API version 8: SetResponseType callback fires with Json-data signature
     // on Close()-cancel too (curlcode 42, data=0) instead of reverting to the
     // raw size signature. No new natives.
+
+    // API version 9: async2_SetCompression gained an optional `int minBytes`
+    // parameter — if the serialized body is smaller than this threshold,
+    // compression is skipped. Default 0 preserves the original always-compress
+    // behavior. Old plugins compiled against the 2-arg signature load fine on
+    // the new extension (the native ignores the missing 3rd cell).
 }

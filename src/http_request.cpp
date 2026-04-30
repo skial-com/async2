@@ -140,7 +140,7 @@ void HttpRequest::SetupCurl() {
         body_node = nullptr;
     }
 
-    if (!post_body.empty() && compress_body) {
+    if (!post_body.empty() && compress_body && post_body.size() >= compress_min_size) {
         std::vector<char> compressed;
         if (CompressDeflate(post_body.data(), post_body.size(), compressed)) {
             post_body.assign(compressed.data(), compressed.size());

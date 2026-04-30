@@ -126,6 +126,7 @@ static cell_t Native_SetBodyJSON(IPluginContext* pContext, const cell_t* params)
 static cell_t Native_SetCompression(IPluginContext* pContext, const cell_t* params) {
     GET_HTTP_REQUEST()
     request->compress_body = params[2] != 0;
+    request->compress_min_size = (params[0] >= 3 && params[3] > 0) ? (size_t)params[3] : 0;
     return 0;
 }
 
