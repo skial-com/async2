@@ -181,6 +181,36 @@ async2_JsonPathGetString(data, "users", 0, "name", name, sizeof(name));
 data.Close();
 ```
 
+### Polymorphic Get
+
+`Get(key)` and `ArrayGet(idx)` return a handle for ANY value type — Object, Array, or scalar leaf. Read scalar handles with `AsInt` / `AsFloat` / `AsBool` / `AsString`. `MemberType(key)` reports a child's type without extracting it (use for schema-defensive code). Typed getters (`GetInt`, `GetString`, etc.) throw on type mismatch — missing keys and JSON `null` values still return defaults silently.
+
+```sourcepawn
+Json data = Json.ParseString("{\"count\":42,\"items\":[1,2,3],\"name\":\"alice\"}");
+
+// Get works on containers AND scalars
+Json items = data.Get("items");
+PrintToServer("items has %d entries", items.Length);  // Length is polymorphic
+items.Close();
+
+Json count = data.Get("count");
+PrintToServer("count = %d", count.AsInt());
+count.Close();
+
+// Schema-defensive read — pre-flight with MemberType
+if (data.MemberType("name") == JSON_TYPE_STRING) {
+    char buf[64];
+    data.GetString("name", buf, sizeof(buf));
+    PrintToServer("name = %s", buf);
+}
+
+// Typed getters are strict — wrong-type values throw, helping you catch bugs:
+//   data.GetInt("name");   // throws "expected numeric, got string"
+//   data.GetInt("missing");// returns 0 (missing key is not a type error)
+
+data.Close();
+```
+
 ### HJSON
 
 Parse config files with comments, unquoted keys, and multiline strings. Returns a standard `Json` handle.
