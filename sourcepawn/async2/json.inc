@@ -31,6 +31,27 @@ enum JsonType {
 // Ref() returns a lightweight reference sharing the same data (no copy).
 // Copy() returns an independent deep copy.
 //
+// POLYMORPHIC ACCESS (api version 10+):
+//   Get(key) / ArrayGet(idx) — return a handle to ANY child node, including
+//   scalar leaves (Int/Float/String/Bool/Null). For containers, use the handle
+//   normally. For scalars, read with AsInt/AsFloat/AsBool/AsString. The handle
+//   must be closed in either case.
+//
+//   MemberType(key) / ArrayMemberType(idx) — return the JsonType of a child
+//   without extracting it. Use to dispatch defensively before reading:
+//
+//     JsonType t = obj.MemberType("count");
+//     if (t == JSON_TYPE_NUMBER) v = obj.GetInt("count");
+//
+//   These methods require async2 extension v10+. Plugins compiled against this
+//   include load on older extensions, but calling these methods throws at
+//   runtime. Pre-flight with async2_GetVersion() if you need to support both.
+//
+// - Get(key) (v10+) returns any type. GetObject/GetArray are strict and
+//   return 0 on type mismatch — switch to Get if you silently got 0.
+// - Use SetObject only on object parents; the child can be any type.
+//   For array parents use ArrayAppend*/ArraySet*.
+//
 // Parses the response body of an HTTP request as JSON.
 // Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonParseResponse(WebRequest httpHandle);
@@ -91,6 +112,28 @@ native Json async2_JsonGetObject(Json jsonHandle, const char[] key);
 // Must be closed with async2_JsonClose when done.
 native Json async2_JsonGetArray(Json jsonHandle, const char[] key);
 
+// Polymorphic: returns a handle for ANY child node type — Object, Array, or
+// scalar (Int/Float/String/Bool/Null). For scalar handles, read with
+// async2_JsonAs* or close immediately. Returns 0 if the key is missing.
+// Requires async2 extension v10+.
+native Json async2_JsonGet(Json jsonHandle, const char[] key);
+
+// Returns the JsonType of a child without extracting it.
+// JSON_TYPE_NONE if the key is missing. Requires async2 extension v10+.
+native JsonType async2_JsonGetMemberType(Json jsonHandle, const char[] key);
+
+// Scalar coercion on a handle wrapping a leaf value. Numeric types coerce
+// among each other (int↔float↔bool); other types return defaults. Requires v10+.
+native int async2_JsonAsInt(Json jsonHandle);
+#if defined SOURCEMOD_INT64
+native int async2_JsonAsInt64(Json jsonHandle, int64 &val);
+#else
+native int async2_JsonAsInt64(Json jsonHandle, int val[2]);
+#endif
+native float async2_JsonAsFloat(Json jsonHandle);
+native bool async2_JsonAsBool(Json jsonHandle);
+native int async2_JsonAsString(Json jsonHandle, char[] buf, int maxlen);
+
 // Array getters — return default values (0, 0.0, false, "") for out-of-bounds or wrong type.
 native int async2_JsonArrayGetString(Json jsonHandle, int index, char[] buf, int maxlen);
 native int async2_JsonArrayGetInt(Json jsonHandle, int index);
@@ -106,6 +149,15 @@ native bool async2_JsonArrayGetBool(Json jsonHandle, int index);
 // The returned handle shares ownership of the tree — closing the parent does not invalidate it.
 // Must be closed with async2_JsonClose when done.
 native Json async2_JsonArrayGetObject(Json jsonHandle, int index);
+
+// Polymorphic array element getter — returns any child node type, including
+// scalars (read with async2_JsonAs*). Returns 0 if out of bounds.
+// Requires async2 extension v10+.
+native Json async2_JsonArrayGet(Json jsonHandle, int index);
+
+// Returns the JsonType of an array element without extracting it.
+// JSON_TYPE_NONE if out of bounds. Requires async2 extension v10+.
+native JsonType async2_JsonArrayGetType(Json jsonHandle, int index);
 
 // Object setters — set or overwrite a key. If the key exists, the old value is destroyed.
 native int async2_JsonSetString(Json jsonHandle, const char[] key, const char[] value);
@@ -540,5 +592,104 @@ methodmap Json __nullable__ {
 
     public int GetBuffer(char[] buffer, int maxlen, int offset = 0) {
         return async2_JsonGetBuffer(this, buffer, maxlen, offset);
+    }
+
+    // ------------------------------------------------------------------------
+    // Polymorphic API (api version 10+)
+    // ------------------------------------------------------------------------
+
+    // Returns a handle for any child node — container OR scalar. Pair with
+    // AsInt/AsFloat/AsBool/AsString for scalar handles. Returns null if the
+    // key is missing. The returned handle must be closed.
+    public Json Get(const char[] key) {
+        return view_as<Json>(async2_JsonGet(this, key));
+    }
+
+    public Json ArrayGet(int index) {
+        return view_as<Json>(async2_JsonArrayGet(this, index));
+    }
+
+    // Returns the JsonType of a child without extracting it.
+    // JSON_TYPE_NONE if missing/out-of-bounds.
+    public JsonType MemberType(const char[] key) {
+        return async2_JsonGetMemberType(this, key);
+    }
+
+    public JsonType ArrayMemberType(int index) {
+        return async2_JsonArrayGetType(this, index);
+    }
+
+    // Scalar coercion on a handle wrapping a leaf value (obtained via Get/ArrayGet).
+    // Coercion mirrors GetInt/GetFloat/GetBool/GetString.
+    public int AsInt() {
+        return async2_JsonAsInt(this);
+    }
+
+#if defined SOURCEMOD_INT64
+    public void AsInt64(int64 &val) {
+#else
+    public void AsInt64(int val[2]) {
+#endif
+        async2_JsonAsInt64(this, val);
+    }
+
+    public float AsFloat() {
+        return async2_JsonAsFloat(this);
+    }
+
+    public bool AsBool() {
+        return async2_JsonAsBool(this);
+    }
+
+    public void AsString(char[] buf, int maxlen) {
+        async2_JsonAsString(this, buf, maxlen);
+    }
+
+    // Polymorphic length: ObjectSize for objects, ArrayLength for arrays,
+    // IntObjectSize for IntObject, 0 otherwise. No new native — dispatches.
+    property int Length {
+        public get() {
+            JsonType t = async2_JsonGetType(this);
+            if (t == JSON_TYPE_OBJECT) return async2_JsonObjectSize(this);
+            if (t == JSON_TYPE_ARRAY) return async2_JsonArrayLength(this);
+            if (t == JSON_TYPE_INTOBJECT) return async2_IntObjectSize(this);
+            return 0;
+        }
+    }
+
+    // Aliases that match the polymorphic shape — dispatch to existing natives
+    // that have always been polymorphic (any child node type accepted).
+    public bool Has(const char[] key) {
+        return async2_JsonHasKey(this, key);
+    }
+
+    public void Set(const char[] key, Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonSetObject(this, key, dup);
+        } else {
+            async2_JsonSetObject(this, key, child);
+            child = null;
+        }
+    }
+
+    public void ArraySet(int index, Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonArraySetObject(this, index, dup);
+        } else {
+            async2_JsonArraySetObject(this, index, child);
+            child = null;
+        }
+    }
+
+    public void ArrayAppend(Json &child, bool copy = false) {
+        if (copy) {
+            Json dup = view_as<Json>(async2_JsonCopy(child));
+            async2_JsonArrayAppendObject(this, dup);
+        } else {
+            async2_JsonArrayAppendObject(this, child);
+            child = null;
+        }
     }
 }

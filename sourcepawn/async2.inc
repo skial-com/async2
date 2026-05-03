@@ -178,4 +178,21 @@ public void __ext_async2_SetNTVOptional()
     // compression is skipped. Default 0 preserves the original always-compress
     // behavior. Old plugins compiled against the 2-arg signature load fine on
     // the new extension (the native ignores the missing 3rd cell).
+
+    // API version 10: polymorphic Get/ArrayGet returning any child node type
+    // (containers + scalars), member-type introspection (MemberType/ArrayMemberType),
+    // and scalar coercion (As*) on handles wrapping leaf values.
+    MarkNativeAsOptional("async2_JsonGet");
+    MarkNativeAsOptional("async2_JsonArrayGet");
+    MarkNativeAsOptional("async2_JsonGetMemberType");
+    MarkNativeAsOptional("async2_JsonArrayGetType");
+    MarkNativeAsOptional("async2_JsonAsInt");
+    MarkNativeAsOptional("async2_JsonAsInt64");
+    MarkNativeAsOptional("async2_JsonAsFloat");
+    MarkNativeAsOptional("async2_JsonAsBool");
+    MarkNativeAsOptional("async2_JsonAsString");
+    MarkNativeAsOptional("async2_IntObjectGet");
+    MarkNativeAsOptional("async2_IntObjectGetMemberType");
+    MarkNativeAsOptional("async2_IntObject64Get");
+    MarkNativeAsOptional("async2_IntObject64GetMemberType");
 }

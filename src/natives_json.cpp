@@ -414,6 +414,63 @@ static cell_t Native_JsonGetArray(IPluginContext* pContext, const cell_t* params
     return WrapChildNode(pContext,val);
 }
 
+// Polymorphic member getter — returns any child node (containers + scalars).
+// Pair with As*() to read scalar handles. Use MemberType to inspect first.
+static cell_t Native_JsonGet(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    char* key;
+    pContext->LocalToString(params[2], &key);
+    return WrapChildNode(pContext, json->GetMemberNode(key));
+}
+
+static cell_t Native_JsonArrayGet(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return WrapChildNode(pContext, json->ArrayGetMemberNode(params[2]));
+}
+
+static cell_t Native_JsonGetMemberType(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    char* key;
+    pContext->LocalToString(params[2], &key);
+    return json->MemberType(key);
+}
+
+static cell_t Native_JsonArrayGetType(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return json->ArrayMemberType(params[2]);
+}
+
+// Scalar extractors for handles wrapping a scalar leaf.
+static cell_t Native_JsonAsInt(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return static_cast<cell_t>(json->AsInt());
+}
+
+static cell_t Native_JsonAsInt64(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    int64_t val = json->AsInt();
+    cell_t* out;
+    pContext->LocalToPhysAddr(params[2], &out);
+    WriteInt64(out, val);
+    return 0;
+}
+
+static cell_t Native_JsonAsFloat(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return sp_ftoc(static_cast<float>(json->AsFloat()));
+}
+
+static cell_t Native_JsonAsBool(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    return json->AsBool() ? 1 : 0;
+}
+
+static cell_t Native_JsonAsString(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    pContext->StringToLocal(params[2], params[3], json->AsString());
+    return 0;
+}
+
 // Array getters
 static cell_t Native_JsonArrayGetInt64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
@@ -1083,6 +1140,31 @@ static cell_t Native_IntMapGetArray64(IPluginContext* pContext, const cell_t* pa
     return WrapChildNode(pContext,val);
 }
 
+// Polymorphic IntMap member getters and type introspection.
+static cell_t Native_IntMapGet(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    int64_t key = static_cast<int64_t>(params[2]);
+    return WrapChildNode(pContext, json->IntMapGetMemberNode(key));
+}
+
+static cell_t Native_IntMapGet64(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    int64_t key = ReadInt64Param(pContext, params[2]);
+    return WrapChildNode(pContext, json->IntMapGetMemberNode(key));
+}
+
+static cell_t Native_IntMapGetMemberType(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    int64_t key = static_cast<int64_t>(params[2]);
+    return json->IntMapMemberType(key);
+}
+
+static cell_t Native_IntMapGetMemberType64(IPluginContext* pContext, const cell_t* params) {
+    GET_JSON_HANDLE()
+    int64_t key = ReadInt64Param(pContext, params[2]);
+    return json->IntMapMemberType(key);
+}
+
 // 32-bit key setters
 static cell_t Native_IntMapSetString(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
@@ -1282,12 +1364,21 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_JsonGetBool",              Native_JsonGetBool},
     {"async2_JsonGetObject",            Native_JsonGetObject},
     {"async2_JsonGetArray",             Native_JsonGetArray},
+    {"async2_JsonGet",                  Native_JsonGet},
+    {"async2_JsonGetMemberType",        Native_JsonGetMemberType},
+    {"async2_JsonAsInt",                Native_JsonAsInt},
+    {"async2_JsonAsInt64",              Native_JsonAsInt64},
+    {"async2_JsonAsFloat",              Native_JsonAsFloat},
+    {"async2_JsonAsBool",               Native_JsonAsBool},
+    {"async2_JsonAsString",             Native_JsonAsString},
     {"async2_JsonArrayGetString",       Native_JsonArrayGetString},
     {"async2_JsonArrayGetInt",          Native_JsonArrayGetInt},
     {"async2_JsonArrayGetInt64",        Native_JsonArrayGetInt64},
     {"async2_JsonArrayGetFloat",        Native_JsonArrayGetFloat},
     {"async2_JsonArrayGetBool",         Native_JsonArrayGetBool},
     {"async2_JsonArrayGetObject",       Native_JsonArrayGetObject},
+    {"async2_JsonArrayGet",             Native_JsonArrayGet},
+    {"async2_JsonArrayGetType",         Native_JsonArrayGetType},
     {"async2_ObjectIterCreate",         Native_ObjectIterCreate},
     {"async2_IntMapIterCreate",         Native_IntMapIterCreate},
     {"async2_IterNext",                 Native_IterNext},
@@ -1352,6 +1443,8 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_IntObjectGetBool",            Native_IntMapGetBool},
     {"async2_IntObjectGetObject",          Native_IntMapGetObject},
     {"async2_IntObjectGetArray",           Native_IntMapGetArray},
+    {"async2_IntObjectGet",                Native_IntMapGet},
+    {"async2_IntObjectGetMemberType",      Native_IntMapGetMemberType},
     {"async2_IntObject64GetString",        Native_IntMapGetString64},
     {"async2_IntObject64GetInt",           Native_IntMapGetInt64Key},
     {"async2_IntObject64GetInt64",         Native_IntMapGetInt64KeyValue},
@@ -1359,6 +1452,8 @@ sp_nativeinfo_t g_JsonNatives[] = {
     {"async2_IntObject64GetBool",          Native_IntMapGetBool64},
     {"async2_IntObject64GetObject",        Native_IntMapGetObject64},
     {"async2_IntObject64GetArray",         Native_IntMapGetArray64},
+    {"async2_IntObject64Get",              Native_IntMapGet64},
+    {"async2_IntObject64GetMemberType",    Native_IntMapGetMemberType64},
     {"async2_IntObjectSetString",          Native_IntMapSetString},
     {"async2_IntObjectSetInt",             Native_IntMapSetInt},
     {"async2_IntObjectSetFloat",           Native_IntMapSetFloat},

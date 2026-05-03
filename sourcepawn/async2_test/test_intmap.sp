@@ -286,8 +286,8 @@ void Test_IntObject_JsonSerialize() {
     map.SetInt(1, 100);
 
     char buf[64];
-    bool ok = view_as<Json>(map).Serialize(buf, sizeof(buf));
-    Assert(ok, "IntObject Serialize succeeds");
+    int len = view_as<Json>(map).Serialize(buf, sizeof(buf));
+    Assert(len > 0, "IntObject Serialize succeeds");
     AssertStrEq(buf, "null", "IntObject Serialize outputs null");
     map.Close();
 }

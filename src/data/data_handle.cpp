@@ -101,6 +101,68 @@ DataNode* DataHandle::GetArrayNode(const char* key) const {
     return child;
 }
 
+// Polymorphic member access — no type filter, returns whatever's at the key/index.
+DataNode* DataHandle::GetMemberNode(const char* key) const {
+    if (!node) return nullptr;
+    return node->ObjFind(key);
+}
+
+DataNode* DataHandle::ArrayGetMemberNode(size_t index) const {
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return nullptr;
+    return node->Arr()[index];
+}
+
+DataNode* DataHandle::IntMapGetMemberNode(int64_t key) const {
+    if (!node) return nullptr;
+    return node->IntMapFind(key);
+}
+
+Async2DataType DataHandle::MemberType(const char* key) const {
+    if (!node) return JSON_TYPE_NONE;
+    return NodeToType(node->ObjFind(key));
+}
+
+Async2DataType DataHandle::ArrayMemberType(size_t index) const {
+    if (!node || node->type != DataType::Array || index >= node->Arr().size()) return JSON_TYPE_NONE;
+    return NodeToType(node->Arr()[index]);
+}
+
+Async2DataType DataHandle::IntMapMemberType(int64_t key) const {
+    if (!node) return JSON_TYPE_NONE;
+    return NodeToType(node->IntMapFind(key));
+}
+
+// Scalar coercion on this->node (mirrors GetInt/GetFloat/GetBool/GetString
+// coercion rules). For handles wrapping a scalar leaf obtained via Get*().
+int64_t DataHandle::AsInt() const {
+    if (!node) return 0;
+    if (node->type == DataType::Int) return node->int_val;
+    if (node->type == DataType::Float) return static_cast<int64_t>(node->float_val);
+    if (node->type == DataType::Bool) return node->bool_val ? 1 : 0;
+    return 0;
+}
+
+double DataHandle::AsFloat() const {
+    if (!node) return 0.0;
+    if (node->type == DataType::Float) return node->float_val;
+    if (node->type == DataType::Int) return static_cast<double>(node->int_val);
+    if (node->type == DataType::Bool) return node->bool_val ? 1.0 : 0.0;
+    return 0.0;
+}
+
+bool DataHandle::AsBool() const {
+    if (!node) return false;
+    if (node->type == DataType::Bool) return node->bool_val;
+    if (node->type == DataType::Int) return node->int_val != 0;
+    if (node->type == DataType::Float) return node->float_val != 0.0;
+    return false;
+}
+
+const char* DataHandle::AsString() const {
+    if (!node || node->type != DataType::String) return "";
+    return node->Str().c_str();
+}
+
 // Array getters
 const char* DataHandle::ArrayGetString(size_t index) const {
     if (!node || node->type != DataType::Array || index >= node->Arr().size()) return "";

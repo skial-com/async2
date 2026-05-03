@@ -283,8 +283,8 @@ void Test_Serialize() {
     obj.SetString("key", "val");
 
     char buf[256];
-    bool ok = obj.Serialize(buf, sizeof(buf));
-    Assert(ok, "Serialize succeeds");
+    int len = obj.Serialize(buf, sizeof(buf));
+    Assert(len > 0, "Serialize succeeds");
 
     // Parse it back to verify round-trip
     Json parsed = Json.ParseString(buf);

@@ -35,6 +35,24 @@ public:
     size_t ArrayLength() const;
     bool HasKey(const char* key) const;
 
+    // Polymorphic member getters — return any child node (containers or scalars).
+    // Pair with the As* methods below to read scalar handles.
+    DataNode* GetMemberNode(const char* key) const;
+    DataNode* ArrayGetMemberNode(size_t index) const;
+    DataNode* IntMapGetMemberNode(int64_t key) const;
+
+    // Member type introspection — query a child's type without extracting it.
+    Async2DataType MemberType(const char* key) const;
+    Async2DataType ArrayMemberType(size_t index) const;
+    Async2DataType IntMapMemberType(int64_t key) const;
+
+    // Scalar coercion on this->node — for handles wrapping a scalar leaf.
+    // Coercion matches the parent-key getters (GetInt/GetFloat/GetBool/GetString).
+    int64_t     AsInt() const;
+    double      AsFloat() const;
+    bool        AsBool() const;
+    const char* AsString() const;
+
     // Object getters
     const char* GetString(const char* key) const;
     int64_t GetInt(const char* key) const;

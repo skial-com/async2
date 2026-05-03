@@ -29,6 +29,12 @@ native bool async2_IntObjectGetBool(Json handle, int key);
 native Json async2_IntObjectGetObject(Json handle, int key);
 native Json async2_IntObjectGetArray(Json handle, int key);
 
+// Polymorphic getter — returns any child node type. For scalars, read with
+// async2_JsonAs*. Requires async2 extension v10+.
+native Json async2_IntObjectGet(Json handle, int key);
+// Returns the JsonType of a child without extracting it. v10+.
+native JsonType async2_IntObjectGetMemberType(Json handle, int key);
+
 // 64-bit key getters — key is int[2] (low, high)
 native int async2_IntObject64GetString(Json handle, int key[2], char[] buf, int maxlen);
 native int async2_IntObject64GetInt(Json handle, int key[2]);
@@ -37,6 +43,10 @@ native float async2_IntObject64GetFloat(Json handle, int key[2]);
 native bool async2_IntObject64GetBool(Json handle, int key[2]);
 native Json async2_IntObject64GetObject(Json handle, int key[2]);
 native Json async2_IntObject64GetArray(Json handle, int key[2]);
+
+// Polymorphic and member-type variants for 64-bit keys. Requires v10+.
+native Json async2_IntObject64Get(Json handle, int key[2]);
+native JsonType async2_IntObject64GetMemberType(Json handle, int key[2]);
 
 // 32-bit key setters
 native int async2_IntObjectSetString(Json handle, int key, const char[] value);
@@ -108,6 +118,16 @@ methodmap IntObject < Json {
 
     public Json GetArray(int key) {
         return view_as<Json>(async2_IntObjectGetArray(this, key));
+    }
+
+    // Polymorphic — returns any child node type. v10+.
+    public Json Get(int key) {
+        return view_as<Json>(async2_IntObjectGet(this, key));
+    }
+
+    // Type of a child without extracting it. v10+.
+    public JsonType MemberType(int key) {
+        return async2_IntObjectGetMemberType(this, key);
     }
 
     public void SetString(int key, const char[] value) {
@@ -187,6 +207,16 @@ methodmap IntObject < Json {
 
     public Json GetArray64(int key[2]) {
         return view_as<Json>(async2_IntObject64GetArray(this, key));
+    }
+
+    // Polymorphic — returns any child node type. v10+.
+    public Json Get64(int key[2]) {
+        return view_as<Json>(async2_IntObject64Get(this, key));
+    }
+
+    // Type of a child without extracting it. v10+.
+    public JsonType MemberType64(int key[2]) {
+        return async2_IntObject64GetMemberType(this, key);
     }
 
     public void SetString64(int key[2], const char[] value) {
