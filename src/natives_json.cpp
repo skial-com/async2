@@ -192,10 +192,65 @@ static DataNode* ResolveJsonPath(IPluginContext* pContext, DataNode* node,
     return node;
 }
 
+// Throws if the handle is missing/closed/invalid. The throw aborts the plugin
+// at the call site rather than silently returning a default — so a stale
+// handle surfaces as a clear error instead of cascading through several
+// no-op calls. Close() does NOT use this macro and stays null-safe.
 #define GET_JSON_HANDLE() \
     DataHandle* json = g_handle_manager.GetDataHandle(params[1]); \
     if (!json) \
-        return 0;
+        return pContext->ThrowNativeError("Invalid or closed Json handle");
+
+// Strict-mode helpers for typed scalar getters. Behavior:
+//   - v == nullptr (missing key/index) → return default, no throw.
+//   - v->type == Null (JSON null sentinel)  → return default, no throw.
+//     Treating null as "no value" matches the JSON convention and avoids
+//     forcing a MemberType pre-flight on every nullable field.
+//   - Numeric getters: Int/Float/Bool coerce as before.
+//   - Anything else (Object/Array/IntMap/String for numeric; non-String for
+//     string getter) → throw with key/index and actual type in the message.
+
+static int64_t StrictAsInt(IPluginContext* pContext, DataNode* v,
+                            const char* nativeName, const char* loc) {
+    if (!v || v->type == DataType::Null) return 0;
+    if (v->type == DataType::Int) return v->int_val;
+    if (v->type == DataType::Float) return static_cast<int64_t>(v->float_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1 : 0;
+    pContext->ThrowNativeError("%s(%s): value is %s, expected numeric",
+                                nativeName, loc, DataTypeName(v->type));
+    return 0;
+}
+
+static double StrictAsFloat(IPluginContext* pContext, DataNode* v,
+                             const char* nativeName, const char* loc) {
+    if (!v || v->type == DataType::Null) return 0.0;
+    if (v->type == DataType::Float) return v->float_val;
+    if (v->type == DataType::Int) return static_cast<double>(v->int_val);
+    if (v->type == DataType::Bool) return v->bool_val ? 1.0 : 0.0;
+    pContext->ThrowNativeError("%s(%s): value is %s, expected numeric",
+                                nativeName, loc, DataTypeName(v->type));
+    return 0.0;
+}
+
+static bool StrictAsBool(IPluginContext* pContext, DataNode* v,
+                          const char* nativeName, const char* loc) {
+    if (!v || v->type == DataType::Null) return false;
+    if (v->type == DataType::Bool) return v->bool_val;
+    if (v->type == DataType::Int) return v->int_val != 0;
+    if (v->type == DataType::Float) return v->float_val != 0.0;
+    pContext->ThrowNativeError("%s(%s): value is %s, expected numeric",
+                                nativeName, loc, DataTypeName(v->type));
+    return false;
+}
+
+static const char* StrictAsString(IPluginContext* pContext, DataNode* v,
+                                   const char* nativeName, const char* loc) {
+    if (!v || v->type == DataType::Null) return "";
+    if (v->type == DataType::String) return v->Str().c_str();
+    pContext->ThrowNativeError("%s(%s): value is %s, expected String",
+                                nativeName, loc, DataTypeName(v->type));
+    return "";
+}
 
 // Wrap a DataNode* into a new handle with an incremented refcount.
 static cell_t WrapChildNode(IPluginContext* pContext, DataNode* val) {
@@ -360,7 +415,9 @@ static cell_t Native_JsonGetString(IPluginContext* pContext, const cell_t* param
     GET_JSON_HANDLE()
     char* key;
     pContext->LocalToString(params[2], &key);
-    const char* val = json->GetString(key);
+    DataNode* v = json->node ? json->node->ObjFind(key) : nullptr;
+    char loc[260]; snprintf(loc, sizeof(loc), "\"%s\"", key);
+    const char* val = StrictAsString(pContext, v, "JsonGetString", loc);
     pContext->StringToLocal(params[3], params[4], val);
     return 0;
 }
@@ -369,29 +426,36 @@ static cell_t Native_JsonGetInt(IPluginContext* pContext, const cell_t* params) 
     GET_JSON_HANDLE()
     char* key;
     pContext->LocalToString(params[2], &key);
-    return static_cast<cell_t>(json->GetInt(key));
+    DataNode* v = json->node ? json->node->ObjFind(key) : nullptr;
+    char loc[260]; snprintf(loc, sizeof(loc), "\"%s\"", key);
+    return static_cast<cell_t>(StrictAsInt(pContext, v, "JsonGetInt", loc));
 }
 
 static cell_t Native_JsonGetFloat(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     char* key;
     pContext->LocalToString(params[2], &key);
-    float val = static_cast<float>(json->GetFloat(key));
-    return sp_ftoc(val);
+    DataNode* v = json->node ? json->node->ObjFind(key) : nullptr;
+    char loc[260]; snprintf(loc, sizeof(loc), "\"%s\"", key);
+    return sp_ftoc(static_cast<float>(StrictAsFloat(pContext, v, "JsonGetFloat", loc)));
 }
 
 static cell_t Native_JsonGetBool(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     char* key;
     pContext->LocalToString(params[2], &key);
-    return json->GetBool(key) ? 1 : 0;
+    DataNode* v = json->node ? json->node->ObjFind(key) : nullptr;
+    char loc[260]; snprintf(loc, sizeof(loc), "\"%s\"", key);
+    return StrictAsBool(pContext, v, "JsonGetBool", loc) ? 1 : 0;
 }
 
 static cell_t Native_JsonGetInt64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     char* key;
     pContext->LocalToString(params[2], &key);
-    int64_t val = json->GetInt(key);
+    DataNode* v = json->node ? json->node->ObjFind(key) : nullptr;
+    char loc[260]; snprintf(loc, sizeof(loc), "\"%s\"", key);
+    int64_t val = StrictAsInt(pContext, v, "JsonGetInt64", loc);
     cell_t* out;
     pContext->LocalToPhysAddr(params[3], &out);
     WriteInt64(out, val);
@@ -440,15 +504,15 @@ static cell_t Native_JsonArrayGetType(IPluginContext* pContext, const cell_t* pa
     return json->ArrayMemberType(params[2]);
 }
 
-// Scalar extractors for handles wrapping a scalar leaf.
+// Scalar extractors for handles wrapping a scalar leaf — strict on type mismatch.
 static cell_t Native_JsonAsInt(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    return static_cast<cell_t>(json->AsInt());
+    return static_cast<cell_t>(StrictAsInt(pContext, json->node, "JsonAsInt", "<handle>"));
 }
 
 static cell_t Native_JsonAsInt64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    int64_t val = json->AsInt();
+    int64_t val = StrictAsInt(pContext, json->node, "JsonAsInt64", "<handle>");
     cell_t* out;
     pContext->LocalToPhysAddr(params[2], &out);
     WriteInt64(out, val);
@@ -457,24 +521,35 @@ static cell_t Native_JsonAsInt64(IPluginContext* pContext, const cell_t* params)
 
 static cell_t Native_JsonAsFloat(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    return sp_ftoc(static_cast<float>(json->AsFloat()));
+    return sp_ftoc(static_cast<float>(
+        StrictAsFloat(pContext, json->node, "JsonAsFloat", "<handle>")));
 }
 
 static cell_t Native_JsonAsBool(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    return json->AsBool() ? 1 : 0;
+    return StrictAsBool(pContext, json->node, "JsonAsBool", "<handle>") ? 1 : 0;
 }
 
 static cell_t Native_JsonAsString(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    pContext->StringToLocal(params[2], params[3], json->AsString());
+    const char* val = StrictAsString(pContext, json->node, "JsonAsString", "<handle>");
+    pContext->StringToLocal(params[2], params[3], val);
     return 0;
 }
 
-// Array getters
+// Array getters — strict on type mismatch, default on out-of-bounds.
+static DataNode* ArrayElem(DataHandle* json, int index) {
+    if (!json->node || json->node->type != DataType::Array) return nullptr;
+    if (index < 0 || static_cast<size_t>(index) >= json->node->Arr().size()) return nullptr;
+    return json->node->Arr()[index];
+}
+
 static cell_t Native_JsonArrayGetInt64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    int64_t val = json->ArrayGetInt(params[2]);
+    int index = params[2];
+    DataNode* v = ArrayElem(json, index);
+    char loc[64]; snprintf(loc, sizeof(loc), "[%d]", index);
+    int64_t val = StrictAsInt(pContext, v, "JsonArrayGetInt64", loc);
     cell_t* out;
     pContext->LocalToPhysAddr(params[3], &out);
     WriteInt64(out, val);
@@ -484,25 +559,35 @@ static cell_t Native_JsonArrayGetInt64(IPluginContext* pContext, const cell_t* p
 static cell_t Native_JsonArrayGetString(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int index = params[2];
-    const char* val = json->ArrayGetString(index);
+    DataNode* v = ArrayElem(json, index);
+    char loc[64]; snprintf(loc, sizeof(loc), "[%d]", index);
+    const char* val = StrictAsString(pContext, v, "JsonArrayGetString", loc);
     pContext->StringToLocal(params[3], params[4], val);
     return 0;
 }
 
 static cell_t Native_JsonArrayGetInt(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    return static_cast<cell_t>(json->ArrayGetInt(params[2]));
+    int index = params[2];
+    DataNode* v = ArrayElem(json, index);
+    char loc[64]; snprintf(loc, sizeof(loc), "[%d]", index);
+    return static_cast<cell_t>(StrictAsInt(pContext, v, "JsonArrayGetInt", loc));
 }
 
 static cell_t Native_JsonArrayGetFloat(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    float val = static_cast<float>(json->ArrayGetFloat(params[2]));
-    return sp_ftoc(val);
+    int index = params[2];
+    DataNode* v = ArrayElem(json, index);
+    char loc[64]; snprintf(loc, sizeof(loc), "[%d]", index);
+    return sp_ftoc(static_cast<float>(StrictAsFloat(pContext, v, "JsonArrayGetFloat", loc)));
 }
 
 static cell_t Native_JsonArrayGetBool(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
-    return json->ArrayGetBool(params[2]) ? 1 : 0;
+    int index = params[2];
+    DataNode* v = ArrayElem(json, index);
+    char loc[64]; snprintf(loc, sizeof(loc), "[%d]", index);
+    return StrictAsBool(pContext, v, "JsonArrayGetBool", loc) ? 1 : 0;
 }
 
 static cell_t Native_JsonArrayGetObject(IPluginContext* pContext, const cell_t* params) {
@@ -1046,11 +1131,13 @@ static cell_t Native_IntMapCreate(IPluginContext* pContext, const cell_t* params
     return handle;
 }
 
-// 32-bit key getters
+// 32-bit key getters — strict on type mismatch.
 static cell_t Native_IntMapGetString(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
-    const char* val = json->IntMapGetString(key);
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    const char* val = StrictAsString(pContext, v, "IntObjectGetString", loc);
     pContext->StringToLocal(params[3], params[4], val);
     return 0;
 }
@@ -1058,20 +1145,25 @@ static cell_t Native_IntMapGetString(IPluginContext* pContext, const cell_t* par
 static cell_t Native_IntMapGetInt(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
-    return static_cast<cell_t>(json->IntMapGetInt(key));
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return static_cast<cell_t>(StrictAsInt(pContext, v, "IntObjectGetInt", loc));
 }
 
 static cell_t Native_IntMapGetFloat(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
-    float val = static_cast<float>(json->IntMapGetFloat(key));
-    return sp_ftoc(val);
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return sp_ftoc(static_cast<float>(StrictAsFloat(pContext, v, "IntObjectGetFloat", loc)));
 }
 
 static cell_t Native_IntMapGetBool(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = static_cast<int64_t>(params[2]);
-    return json->IntMapGetBool(key) ? 1 : 0;
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return StrictAsBool(pContext, v, "IntObjectGetBool", loc) ? 1 : 0;
 }
 
 static cell_t Native_IntMapGetObject(IPluginContext* pContext, const cell_t* params) {
@@ -1088,11 +1180,13 @@ static cell_t Native_IntMapGetArray(IPluginContext* pContext, const cell_t* para
     return WrapChildNode(pContext,val);
 }
 
-// 64-bit key getters
+// 64-bit key getters — strict on type mismatch.
 static cell_t Native_IntMapGetString64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
-    const char* val = json->IntMapGetString(key);
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    const char* val = StrictAsString(pContext, v, "IntObject64GetString", loc);
     pContext->StringToLocal(params[3], params[4], val);
     return 0;
 }
@@ -1100,13 +1194,17 @@ static cell_t Native_IntMapGetString64(IPluginContext* pContext, const cell_t* p
 static cell_t Native_IntMapGetInt64Key(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
-    return static_cast<cell_t>(json->IntMapGetInt(key));
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return static_cast<cell_t>(StrictAsInt(pContext, v, "IntObject64GetInt", loc));
 }
 
 static cell_t Native_IntMapGetInt64KeyValue(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
-    int64_t val = json->IntMapGetInt(key);
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    int64_t val = StrictAsInt(pContext, v, "IntObject64GetInt64", loc);
     cell_t* out;
     pContext->LocalToPhysAddr(params[3], &out);
     WriteInt64(out, val);
@@ -1116,14 +1214,17 @@ static cell_t Native_IntMapGetInt64KeyValue(IPluginContext* pContext, const cell
 static cell_t Native_IntMapGetFloat64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
-    float val = static_cast<float>(json->IntMapGetFloat(key));
-    return sp_ftoc(val);
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return sp_ftoc(static_cast<float>(StrictAsFloat(pContext, v, "IntObject64GetFloat", loc)));
 }
 
 static cell_t Native_IntMapGetBool64(IPluginContext* pContext, const cell_t* params) {
     GET_JSON_HANDLE()
     int64_t key = ReadInt64Param(pContext, params[2]);
-    return json->IntMapGetBool(key) ? 1 : 0;
+    DataNode* v = json->node ? json->node->IntMapFind(key) : nullptr;
+    char loc[40]; snprintf(loc, sizeof(loc), "%lld", static_cast<long long>(key));
+    return StrictAsBool(pContext, v, "IntObject64GetBool", loc) ? 1 : 0;
 }
 
 static cell_t Native_IntMapGetObject64(IPluginContext* pContext, const cell_t* params) {

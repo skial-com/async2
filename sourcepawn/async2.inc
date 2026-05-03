@@ -195,4 +195,12 @@ public void __ext_async2_SetNTVOptional()
     MarkNativeAsOptional("async2_IntObjectGetMemberType");
     MarkNativeAsOptional("async2_IntObject64Get");
     MarkNativeAsOptional("async2_IntObject64GetMemberType");
+
+    // API version 11: typed scalar getters (JsonGetInt/Float/Bool/String,
+    // ArrayGet*, IntObjectGet*, JsonAs*) now THROW on type mismatch instead
+    // of silently returning a default. Missing keys/indices still return the
+    // default — only present-but-wrong-type cases throw, with the key/index
+    // and actual type in the message. Invalid/closed handles also throw via
+    // GET_JSON_HANDLE; Close() remains null-safe. Behavior change only — no
+    // new natives. Pre-flight with MemberType() if a value's type may vary.
 }
