@@ -27,7 +27,7 @@ if [ -z "$ARCH" ]; then
 elif [ "$ARCH" = "all" ]; then
     ARCH="x86,x86_64"
 fi
-SM_PATH="${SM_PATH:-../sdk/sourcemod}"
+SM_PATH="${SM_PATH:-../../sdk/sourcemod}"
 SM_PATH="$(cd "$SCRIPT_DIR" && cd "$SM_PATH" && pwd)"
 
 cd "$SCRIPT_DIR"
@@ -80,3 +80,13 @@ for arch in "${ARCHS[@]}"; do
 done
 
 echo "Build complete. Output in: $SCRIPT_DIR/build/package/"
+
+# Stage binaries into ~/tf2dev/extensions/{,x64}
+mkdir -p ../../dist/extensions/x64
+shopt -s nullglob
+for f in build/package/addons/sourcemod/extensions/*.so; do
+    cp -u "$f" ../../dist/extensions/
+done
+for f in build/package/addons/sourcemod/extensions/x64/*.so; do
+    cp -u "$f" ../../dist/extensions/x64/
+done

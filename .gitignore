@@ -44,6 +44,7 @@ third_party/yyjson/
 *.swo
 *~
 .clangd
+.codex
 
 # OS
 .DS_Store
