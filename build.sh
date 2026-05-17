@@ -5,19 +5,56 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASAN=0
 DEBUG=0
 ARCH=""
-SM_PATH=""
+# SourceMod path: --sm-path takes precedence, then SM_PATH env var,
+# then second positional arg, then the default below.
+SM_PATH="${SM_PATH:-}"
+# Staging dir: --stage-dir takes precedence, then STAGE_DIR env var,
+# then the default below. Binaries are only staged if it already exists.
+STAGE_DIR="${STAGE_DIR:-../../dist/extensions}"
+
+usage() {
+    cat <<'EOF'
+Usage: ./build.sh [ARCH] [SM_PATH] [options]
+
+  ARCH        x86 | x86_64 | all  (default: current platform arch)
+  SM_PATH     Path to the SourceMod SDK (default: ../../sdk/sourcemod)
+
+Options:
+  --sm-path PATH      Path to the SourceMod SDK (overrides positional/env)
+  --sm-path=PATH      Same as above
+  --stage-dir PATH    Dir to stage built .so binaries into (overrides env)
+  --stage-dir=PATH    Same as above
+  --asan              Build with AddressSanitizer (implies Debug)
+  --debug             Build in Debug mode
+  -h, --help          Show this help
+
+The SourceMod path may also be set via the SM_PATH environment variable.
+The staging dir may also be set via the STAGE_DIR environment variable; it
+defaults to ../../dist/extensions and binaries are only staged there if the
+directory already exists.
+EOF
+}
 
 # Parse args
-for arg in "$@"; do
-    if [ "$arg" = "--asan" ]; then
-        ASAN=1
-    elif [ "$arg" = "--debug" ]; then
-        DEBUG=1
-    elif [ -z "$ARCH" ]; then
-        ARCH="$arg"
-    elif [ -z "$SM_PATH" ]; then
-        SM_PATH="$arg"
-    fi
+while [ $# -gt 0 ]; do
+    arg="$1"
+    case "$arg" in
+        --asan) ASAN=1 ;;
+        --debug) DEBUG=1 ;;
+        -h|--help) usage; exit 0 ;;
+        --sm-path) SM_PATH="$2"; shift ;;
+        --sm-path=*) SM_PATH="${arg#--sm-path=}" ;;
+        --stage-dir) STAGE_DIR="$2"; shift ;;
+        --stage-dir=*) STAGE_DIR="${arg#--stage-dir=}" ;;
+        *)
+            if [ -z "$ARCH" ]; then
+                ARCH="$arg"
+            elif [ -z "$SM_PATH" ]; then
+                SM_PATH="$arg"
+            fi
+            ;;
+    esac
+    shift
 done
 
 # Default to current platform arch; "all" builds both x86 and x86_64
@@ -81,12 +118,18 @@ done
 
 echo "Build complete. Output in: $SCRIPT_DIR/build/package/"
 
-# Stage binaries into ~/tf2dev/extensions/{,x64}
-mkdir -p ../../dist/extensions/x64
-shopt -s nullglob
-for f in build/package/addons/sourcemod/extensions/*.so; do
-    cp -u "$f" ../../dist/extensions/
-done
-for f in build/package/addons/sourcemod/extensions/x64/*.so; do
-    cp -u "$f" ../../dist/extensions/x64/
-done
+# Stage binaries into STAGE_DIR/{,x64}, only if STAGE_DIR already exists
+if [ -d "$STAGE_DIR" ]; then
+    STAGE_DIR="$(cd "$STAGE_DIR" && pwd)"
+    echo "=== Staging binaries into $STAGE_DIR ==="
+    mkdir -p "$STAGE_DIR/x64"
+    shopt -s nullglob
+    for f in build/package/addons/sourcemod/extensions/*.so; do
+        cp -u "$f" "$STAGE_DIR/"
+    done
+    for f in build/package/addons/sourcemod/extensions/x64/*.so; do
+        cp -u "$f" "$STAGE_DIR/x64/"
+    done
+else
+    echo "Staging dir '$STAGE_DIR' does not exist; skipping binary staging."
+fi

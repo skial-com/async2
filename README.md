@@ -387,6 +387,18 @@ cmake .. -A x64 -DSM_PATH=<sourcemod>
 cmake --build . --config Release -j
 ```
 
+### SourceMod path
+
+`build.sh` defaults to `../../sdk/sourcemod`. Point it at your SourceMod SDK in any of these ways (highest precedence first):
+
+```bash
+./build.sh x86_64 --sm-path /path/to/sourcemod   # explicit flag
+./build.sh x86_64 /path/to/sourcemod             # second positional arg
+SM_PATH=/path/to/sourcemod ./build.sh x86_64     # environment variable
+```
+
+Run `./build.sh --help` for the full list of arguments and options.
+
 Requires C++17 compiler and CMake 3.16+. All dependencies are bundled as git submodules.
 
 ## License
