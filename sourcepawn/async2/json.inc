@@ -76,13 +76,14 @@ native Json async2_JsonCreateArray();
 // the underlying JSON tree remains valid as long as other handles still reference it.
 native int async2_JsonClose(Json jsonHandle);
 
-// Returns JSON_TYPE_NONE if handle is invalid.
+// Throws if the handle is invalid or closed. Returns JSON_TYPE_NULL for a
+// JSON null value (use this to distinguish "value is null" from "handle dead").
 native JsonType async2_JsonGetType(Json jsonHandle);
 
-// Returns 0 if not an object or handle is invalid.
+// Throws if the handle is invalid or closed. Returns 0 if the value is not an object.
 native int async2_JsonObjectSize(Json jsonHandle);
 
-// Returns 0 if not an array or handle is invalid.
+// Throws if the handle is invalid or closed. Returns 0 if the value is not an array.
 native int async2_JsonArrayLength(Json jsonHandle);
 
 native bool async2_JsonHasKey(Json jsonHandle, const char[] key);
