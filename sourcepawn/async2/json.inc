@@ -52,6 +52,10 @@ enum JsonType {
 // - Use SetObject only on object parents; the child can be any type.
 //   For array parents use ArrayAppend*/ArraySet*.
 //
+// Match the method to the parent: object.Get*(key) by string key,
+// array.ArrayGet*(index) by int index. GetObject/GetArray work only on objects
+// (string key); for an array element use ArrayGetObject(index)/ArrayGet(index).
+//
 // Parses the response body of an HTTP request as JSON.
 // Returns a new JSON handle that must be closed with async2_JsonClose, or 0 on failure.
 native Json async2_JsonParseResponse(WebRequest httpHandle);
@@ -103,11 +107,15 @@ native int async2_JsonGetInt64(Json jsonHandle, const char[] key, int val[2]);
 native float async2_JsonGetFloat(Json jsonHandle, const char[] key);
 native bool async2_JsonGetBool(Json jsonHandle, const char[] key);
 
+// Object parents only. For an array element use async2_JsonArrayGetObject(handle, index);
+// this returns 0 on an array.
 // Shallow: returns a new handle pointing into the same tree, not a copy.
 // The returned handle shares ownership of the tree — closing the parent does not invalidate it.
 // Must be closed with async2_JsonClose when done.
 native Json async2_JsonGetObject(Json jsonHandle, const char[] key);
 
+// Object parents only. For a nested array in an array use async2_JsonArrayGet(handle, index);
+// this returns 0 on an array.
 // Shallow: returns a new handle pointing into the same tree, not a copy.
 // The returned handle shares ownership of the tree — closing the parent does not invalidate it.
 // Must be closed with async2_JsonClose when done.
@@ -395,10 +403,12 @@ methodmap Json __nullable__ {
         return async2_JsonGetBool(this, key);
     }
 
+    // Object key. For an array element use ArrayGetObject(index); null on arrays.
     public Json GetObject(const char[] key) {
         return view_as<Json>(async2_JsonGetObject(this, key));
     }
 
+    // Object key. For an array element use ArrayGet(index); null on arrays.
     public Json GetArray(const char[] key) {
         return view_as<Json>(async2_JsonGetArray(this, key));
     }
@@ -427,6 +437,7 @@ methodmap Json __nullable__ {
         return async2_JsonArrayGetBool(this, index);
     }
 
+    // Array counterpart of GetObject(key): an object element by index.
     public Json ArrayGetObject(int index) {
         return view_as<Json>(async2_JsonArrayGetObject(this, index));
     }
