@@ -16,7 +16,7 @@ usage() {
     cat <<'EOF'
 Usage: ./build.sh [ARCH] [SM_PATH] [options]
 
-  ARCH        x86 | x86_64 | all  (default: current platform arch)
+  ARCH        x86 | x86_64 | all  (default: x86_64)
   SM_PATH     Path to the SourceMod SDK (default: ../../sdk/sourcemod)
 
 Options:
@@ -57,10 +57,10 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# Default to current platform arch; "all" builds both x86 and x86_64
+# Default to x86_64; "all" builds both x86 and x86_64
 if [ -z "$ARCH" ]; then
-    ARCH="$(uname -m)"
-    [ "$ARCH" = "x86_64" ] || ARCH="x86"
+    ARCH="x86_64"
+
 elif [ "$ARCH" = "all" ]; then
     ARCH="x86,x86_64"
 fi
