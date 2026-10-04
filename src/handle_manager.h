@@ -6,7 +6,7 @@
 #include <vector>
 #include <cstdint>
 
-namespace SourcePawn { class IPluginContext; }
+#include <sp_vm_api.h>
 using SourcePawn::IPluginContext;
 
 class HttpRequest;
