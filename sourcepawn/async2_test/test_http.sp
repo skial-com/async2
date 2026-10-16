@@ -849,15 +849,20 @@ void Test_HTTP_SetBodyJSON_DeepCopy() {
     body.SetString("key", "original");
     body.SetInt("num", 100);
 
+    // SetBodyJSON consumes the handle, so a caller that keeps the data takes
+    // a Copy() first. Mutating that copy must not affect the request body.
+    Json kept = body.Copy();
+
     WebRequest req = NewRequest();
     req.SetBodyJSON(body);
+    Assert(body == null, "SetBodyJSON DeepCopy nulls the consumed handle");
 
-    // Mutate original AFTER SetBodyJSON — should not affect the request
-    body.SetString("key", "mutated");
-    body.SetInt("num", 999);
+    kept.SetString("key", "mutated");
+    kept.SetInt("num", 999);
 
     req.Execute("POST", TEST_URL ... "/post", OnHttpSetBodyJSON_DeepCopy);
-    body.Close();
+    body.Close(); // safe no-op on the nulled handle
+    kept.Close();
 }
 
 public void OnHttpSetBodyJSON_DeepCopy(WebRequest req, int curlcode, int httpcode, int size) {
@@ -925,15 +930,19 @@ void Test_HTTP_SetBodyMsgPack_DeepCopy() {
     body.SetString("key", "original");
     body.SetInt("num", 200);
 
+    // Same contract as SetBodyJSON: consumed, so mutate a pre-call Copy().
+    Json kept = body.Copy();
+
     WebRequest req = NewRequest();
     req.SetBodyMsgPack(body);
+    Assert(body == null, "SetBodyMsgPack DeepCopy nulls the consumed handle");
 
-    // Mutate after SetBodyMsgPack
-    body.SetString("key", "mutated");
-    body.SetInt("num", 888);
+    kept.SetString("key", "mutated");
+    kept.SetInt("num", 888);
 
     req.Execute("POST", TEST_URL ... "/msgpack-echo", OnHttpSetBodyMsgPack_DeepCopy);
-    body.Close();
+    body.Close(); // safe no-op on the nulled handle
+    kept.Close();
 }
 
 public void OnHttpSetBodyMsgPack_DeepCopy(WebRequest req, int curlcode, int httpcode, int size) {
@@ -1131,21 +1140,24 @@ void Test_HTTP_SetBodyJSON_Nested() {
     arr.ArrayAppendInt(1);
     arr.ArrayAppendInt(2);
 
+    // SetObject consumes inner and arr. Take live child handles into the
+    // tree (getters share it), then mutate through them after SetBodyJSON
+    // consumed the body: the request must hold its own deep copy.
     Json body = Json.CreateObject();
     body.SetObject("inner", inner);
     body.SetObject("list", arr);
+    Json live_inner = body.GetObject("inner");
+    Json live_list = body.GetArray("list");
 
     WebRequest req = NewRequest();
     req.SetBodyJSON(body);
 
-    // Mutate originals after SetBodyJSON
-    inner.SetString("deep", "MUTATED");
-    arr.ArrayAppendInt(999);
+    live_inner.SetString("deep", "MUTATED");
+    live_list.ArrayAppendInt(999);
 
     req.Execute("POST", TEST_URL ... "/post", OnHttpSetBodyJSON_Nested);
-    inner.Close();
-    arr.Close();
-    body.Close();
+    live_inner.Close();
+    live_list.Close();
 }
 
 public void OnHttpSetBodyJSON_Nested(WebRequest req, int curlcode, int httpcode, int size) {
@@ -1535,6 +1547,9 @@ void RunHttpTests() {
     Test_HTTP_CurlOpt();
     Test_HTTP_CloseBeforeExecute();
     Test_HTTP_SetGlobalOpt();
+    // Reads the global DataNode pool counter, which the event thread moves
+    // while requests are in flight. Must run before the first Execute.
+    Test_HTTP_SetBodyJSON_CloseNoExecute();
 
     // Async tests (need test server)
     Test_HTTP_Get();
@@ -1595,7 +1610,6 @@ void RunHttpTests() {
     Test_HTTP_SetClient_Reassign();
     Test_HTTP_SetClient_AfterClose();
     Test_HTTP_SetResponseType_Retry();
-    Test_HTTP_SetBodyJSON_CloseNoExecute();
     Test_HTTP_SetResponseType_Large();
     Test_HTTP_JsonParse_RepeatedFail();
 
