@@ -203,6 +203,12 @@ static cell_t Native_WsSetOption(IPluginContext* pContext, const cell_t* params)
         case 7: // WS_CONNECT_TIMEOUT
             conn->connect_timeout_ms = value > 0 ? value * 1000 : 10000;
             break;
+        case 8: // WS_PONG_TIMEOUT -- read when the next auto-ping arms the watchdog
+            conn->pong_timeout = value > 0 ? value : 0;
+            break;
+        case 9: // WS_MAX_SEND_QUEUE
+            conn->max_send_queue = value > 0 ? value : 16 * 1024 * 1024;
+            break;
         default:
             break;
     }

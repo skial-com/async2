@@ -379,6 +379,19 @@ func handleWsConn(conn net.Conn, upgradeHeaders ...map[string]string) {
 				conn.Close() // drop TCP without close frame (simulates abnormal disconnect)
 				return
 			}
+			if opcode == 0x1 && string(payload) == "stall" {
+				// Stop reading and answering pings but keep the TCP connection open:
+				// a peer that vanished without a FIN. The client's pong watchdog
+				// (WS_PONG_TIMEOUT) or send-queue cap must notice.
+				time.Sleep(60 * time.Second)
+				return
+			}
+			if opcode == 0x1 && string(payload) == "slow_read" {
+				// Pause reading so the client's socket fills and its sends hit
+				// partial writes / EAGAIN, then resume echoing everything.
+				time.Sleep(3 * time.Second)
+				continue
+			}
 			if opcode == 0x1 && string(payload) == "get_headers" && headers != nil {
 				resp, _ := json.Marshal(headers)
 				if err := wsWriteFrame(conn, 0x1, resp); err != nil {

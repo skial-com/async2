@@ -203,4 +203,12 @@ public void __ext_async2_SetNTVOptional()
     // and actual type in the message. Invalid/closed handles also throw via
     // GET_JSON_HANDLE; Close() remains null-safe. Behavior change only — no
     // new natives. Pre-flight with MemberType() if a value's type may vary.
+
+    // API version 12: WebSocket sends are queued per connection and resumed on
+    // writability. Partial sends and CURLE_AGAIN no longer drop or corrupt
+    // frames. A send error now fails the connection (reconnect or onClose).
+    // New options WS_PONG_TIMEOUT (dead-peer detection after auto-ping) and
+    // WS_MAX_SEND_QUEUE, new onError codes WS_ERROR_PONG_TIMEOUT (-2) and
+    // WS_ERROR_SEND_QUEUE_FULL (-3). No new natives; older builds ignore the
+    // new option ids.
 }

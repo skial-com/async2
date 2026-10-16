@@ -27,6 +27,16 @@ enum WsState {
 // and the incoming message cannot be parsed as JSON/MsgPack.
 #define WS_ERROR_PARSE_FAILED -1
 
+// The peer sent no frame of any kind within WS_PONG_TIMEOUT of an auto-ping, so it
+// is treated as gone (API v12+). The connection then reconnects (SetReconnect) or
+// closes, like any other drop.
+#define WS_ERROR_PONG_TIMEOUT -2
+
+// More than WS_MAX_SEND_QUEUE bytes of outgoing data were waiting because the peer
+// is not reading (API v12+). The connection then reconnects or closes; queued
+// frames are discarded.
+#define WS_ERROR_SEND_QUEUE_FULL -3
+
 // WebSocket close status codes (RFC 6455 Section 7.4.1)
 #define WS_CLOSE_NORMAL            1000  // Normal closure
 #define WS_CLOSE_GOING_AWAY        1001  // Server shutting down or page navigating away
@@ -121,6 +131,14 @@ native int async2_WsConnect(WsSocket socket, const char[] url);
  * @param data    Null-terminated string to send.
  * @param length  Number of bytes to send (-1 = auto strlen).
  * @return  Always 0. The send is asynchronous — network errors are delivered via onError callback.
+ *
+ * Delivery (API v12+): frames go out in order through a per-connection queue. When
+ * the socket is full, the rest of a frame and every frame after it wait for the
+ * socket to drain; nothing is dropped or interleaved. A send error, or more than
+ * WS_MAX_SEND_QUEUE queued bytes, fails the connection (onError, then reconnect or
+ * onClose). Frames still queued when a connection drops or Close() is called are
+ * discarded, never replayed on the next connection. Sends made while not connected (before
+ * onConnect, during a reconnect, after Close) are ignored.
  */
 native int async2_WsSendText(WsSocket socket, const char[] data, int length = -1);
 
@@ -173,7 +191,9 @@ native int async2_WsClose(WsSocket socket, int code = WS_CLOSE_NORMAL, const cha
 native int async2_WsSetOption(WsSocket socket, int option, int value);
 
 /**
- * Configures automatic reconnection when the connection drops unexpectedly.
+ * Configures automatic reconnection when the connection drops unexpectedly:
+ * connect failure, socket/read error, EOF, a close frame from the server, and
+ * (API v12+) a send error, WS_ERROR_SEND_QUEUE_FULL, or WS_ERROR_PONG_TIMEOUT.
  * Must be called before Connect. Does NOT trigger on user-initiated WsClose.
  * Headers and options are preserved across reconnects. onConnect fires again
  * on success. onError fires for each failed attempt. onClose fires only after
@@ -209,6 +229,13 @@ native WsState async2_WsGetState(WsSocket socket);
 #define WS_SSL_VERIFYHOST    5  // SSL host verification (default 1)
 #define WS_PARSE_MESSAGES    6  // 0=raw (default), 1=JSON, 2=MsgPack
 #define WS_CONNECT_TIMEOUT   7  // Connect timeout in seconds (default 10)
+#define WS_PONG_TIMEOUT      8  // API v12+: seconds after an auto-ping with no inbound frame before the
+                                // connection counts as dropped (0=disabled, default). Needs
+                                // WS_PING_INTERVAL > 0. Detects a peer that vanished without a FIN,
+                                // which otherwise goes unnoticed until TCP gives up (~15 min).
+                                // Ignored by older async2 builds, so setting it is always safe.
+#define WS_MAX_SEND_QUEUE    9  // API v12+: max queued outgoing payload bytes (default 16MB); over it
+                                // the connection fails with WS_ERROR_SEND_QUEUE_FULL
 
 methodmap WsSocket __nullable__ {
     public WsSocket(any userdata = 0) {

@@ -570,6 +570,7 @@ void EventLoop::CheckCompletedJobs() {
                     uv_poll_init_socket(loop_, conn->uv_poll, conn->sockfd);
                     conn->uv_poll->data = conn;
                     uv_poll_start(conn->uv_poll, UV_READABLE, OnWsPollActivity);
+                    conn->poll_events_ = UV_READABLE;
                     conn->state = WsState::CONNECTED;
                     conn->reconnect_count = 0;
 
@@ -1542,13 +1543,72 @@ void EventLoop::ProcessWsSend(WsOp* op) {
         default: return;
     }
 
-    size_t sent;
-    CURLcode rc = curl_ws_send(conn->curl_handle, op->data.data(),
-                                op->data.size(), &sent, 0, flags);
-    if (rc != CURLE_OK && rc != CURLE_AGAIN) {
+    WsQueueFrame(conn, std::move(op->data), flags);
+}
+
+// Appends a frame to the connection's send FIFO and sends as much as the socket
+// takes. Returns false when the connection was torn down (queue over
+// max_send_queue, or a hard send error) -- the caller must not touch conn then:
+// the WS_CLOSED event may already be in the game thread's hands.
+bool EventLoop::WsQueueFrame(WsConnection* conn, std::vector<uint8_t> data, unsigned int flags) {
+    // Control frames (ping/pong/close) are tiny and must never be the reason a
+    // connection fails, so only data frames count against the cap.
+    bool control = (flags & (CURLWS_PING | CURLWS_PONG | CURLWS_CLOSE)) != 0;
+    if (!control && conn->send_queue_bytes_ + data.size() > static_cast<size_t>(conn->max_send_queue)) {
+        char msg[96];
+        snprintf(msg, sizeof(msg), "send queue over %d bytes (peer not reading)", conn->max_send_queue);
+        PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
+            conn->plugin_context, conn->on_error, conn->userdata, false,
+            WS_ERROR_SEND_QUEUE_FULL, msg));
+        WsDisconnectOrReconnect(conn, WS_ERROR_SEND_QUEUE_FULL, msg);
+        return false;
+    }
+    conn->send_queue_bytes_ += data.size();
+    conn->send_queue_.push_back(WsPendingFrame{std::move(data), flags});
+    return WsPumpSendQueue(conn);
+}
+
+// Sends queued frames in order until the queue is empty or the socket is full.
+// curl's contract (lib/ws.c, ws_enc_send): CURLE_OK with sent < len means it took
+// part of the payload and the rest must follow in later calls; CURLE_AGAIN means
+// it took none of it but may already hold the frame header, so the SAME frame must
+// be retried -- starting another frame first fails as "unaligned frame size".
+// Returns false when a hard error tore the connection down.
+bool EventLoop::WsPumpSendQueue(WsConnection* conn) {
+    while (!conn->send_queue_.empty() && conn->curl_handle) {
+        WsPendingFrame& f = conn->send_queue_.front();
+        size_t sent = 0;
+        CURLcode rc = curl_ws_send(conn->curl_handle, f.data.data() + f.offset,
+                                   f.data.size() - f.offset, &sent, 0, f.flags);
+        if (rc == CURLE_OK) {
+            f.offset += sent;
+            if (f.offset < f.data.size())
+                break;  // partial: the socket is full, resume on UV_WRITABLE
+            conn->send_queue_bytes_ -= f.data.size();
+            conn->send_queue_.pop_front();
+            continue;
+        }
+        if (rc == CURLE_AGAIN)
+            break;
+        // A real send error: the socket is broken and curl's frame encoder may be
+        // mid-frame, so nothing more can go out on this connection.
         PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
             conn->plugin_context, conn->on_error, conn->userdata, false,
             static_cast<int>(rc), curl_easy_strerror(rc)));
+        WsDisconnectOrReconnect(conn, static_cast<int>(rc), curl_easy_strerror(rc));
+        return false;
+    }
+    WsUpdatePollEvents(conn);
+    return true;
+}
+
+// Polls for UV_WRITABLE exactly while frames are waiting.
+void EventLoop::WsUpdatePollEvents(WsConnection* conn) {
+    if (!conn->uv_poll) return;
+    int want = UV_READABLE | (conn->send_queue_.empty() ? 0 : UV_WRITABLE);
+    if (want != conn->poll_events_) {
+        uv_poll_start(conn->uv_poll, want, OnWsPollActivity);
+        conn->poll_events_ = want;
     }
 }
 
@@ -1583,16 +1643,20 @@ void EventLoop::ProcessWsClose(WsOp* op) {
             memcpy(close_data + 2, op->close_reason.data(), reason_len);
         size_t len = 2 + reason_len;
 
-        size_t sent;
-        curl_ws_send(conn->curl_handle, close_data, len, &sent, 0, CURLWS_CLOSE);
         conn->close_sent_ = true;
 
-        // Start close timeout timer
+        // Start the close timeout before queueing, so a queue call that tears the
+        // connection down leaves WsCleanup to stop it with the rest. Close is best
+        // effort: the close frame goes out now if the socket takes it, but
+        // Native_WsClose already set handle_closed, so the next poll event
+        // (OnWsPollActivity's first check) tears down whatever is still queued.
         conn->close_timer_ = new uv_timer_t;
         uv_timer_init(loop_, conn->close_timer_);
         conn->close_timer_->data = conn;
         uv_timer_start(conn->close_timer_, OnWsCloseTimeout,
                         conn->close_timeout * 1000, 0);
+
+        WsQueueFrame(conn, std::vector<uint8_t>(close_data, close_data + len), CURLWS_CLOSE);
     } else {
         // Not connected yet or no poll handle — just clean up
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
@@ -1658,6 +1722,11 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
         return;
     }
 
+    if (events & UV_WRITABLE) {
+        if (!self->WsPumpSendQueue(conn)) return;
+    }
+    if (!(events & UV_READABLE)) return;
+
     uint8_t buf[65536];
     while (true) {
         size_t nread;
@@ -1678,6 +1747,7 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             return;
         }
         if (!meta) continue;  // safety: skip if no frame metadata
+        conn->rx_frames_++;   // any inbound frame proves the peer is alive (pong watchdog)
 
         // CLOSE frame
         if (meta->flags & CURLWS_CLOSE) {
@@ -1689,19 +1759,19 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
                     close_reason.assign(reinterpret_cast<char*>(buf + 2), nread - 2);
             }
 
-            // If we haven't sent close, send close reply
+            // If we haven't sent close, send close reply. Best effort: it goes
+            // through the send FIFO (behind any half-sent frame), and the teardown
+            // below drops whatever has not flushed by then.
             if (!conn->close_sent_) {
-                size_t sent;
+                conn->close_sent_ = true;
                 // Echo back the close code. If nread < 2 the peer sent no code;
                 // reply with an empty close per RFC 6455 rather than echoing
                 // uninitialized stack bytes.
-                if (nread >= 2) {
-                    uint8_t reply[2] = {buf[0], buf[1]};
-                    curl_ws_send(conn->curl_handle, reply, 2, &sent, 0, CURLWS_CLOSE);
-                } else {
-                    curl_ws_send(conn->curl_handle, nullptr, 0, &sent, 0, CURLWS_CLOSE);
-                }
-                conn->close_sent_ = true;
+                std::vector<uint8_t> reply;
+                if (nread >= 2)
+                    reply.assign(buf, buf + 2);
+                if (!self->WsQueueFrame(conn, std::move(reply), CURLWS_CLOSE))
+                    return;
             }
 
             self->WsDisconnectOrReconnect(conn, close_code, close_reason);
@@ -1740,11 +1810,10 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             self->PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
                 conn->plugin_context, conn->on_error, conn->userdata, false,
                 1009, "Message exceeds max_message_size"));
-            // Send close frame 1009
-            uint8_t close_data[2] = {0x03, 0xF1};  // 1009
-            size_t sent;
-            curl_ws_send(conn->curl_handle, close_data, 2, &sent, 0, CURLWS_CLOSE);
+            // Send close frame 1009 (best effort, like the close echo above)
             conn->close_sent_ = true;
+            if (!self->WsQueueFrame(conn, std::vector<uint8_t>{0x03, 0xF1}, CURLWS_CLOSE))
+                return;
             auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
                 conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
             self->WsCleanup(conn);
@@ -1817,11 +1886,50 @@ void EventLoop::OnWsCloseTimeout(uv_timer_t* handle) {
 
 void EventLoop::OnWsPingTimer(uv_timer_t* handle) {
     WsConnection* conn = static_cast<WsConnection*>(handle->data);
+    EventLoop* self = static_cast<EventLoop*>(handle->loop->data);
 
     if (conn->handle_closed || conn->state != WsState::CONNECTED || !conn->curl_handle) return;
 
-    size_t sent;
-    curl_ws_send(conn->curl_handle, "", 0, &sent, 0, CURLWS_PING);
+    // Arm the watchdog before queueing: a ping stuck behind a full socket is
+    // exactly the stall it exists to catch, and if the queue call tears the
+    // connection down, WsCleanup stops this timer too. One deadline at a time --
+    // with ping_interval < pong_timeout the first unanswered ping decides.
+    if (conn->pong_timeout > 0 && !conn->pong_timer_)
+        self->WsStartPongTimer(conn);
+
+    self->WsQueueFrame(conn, std::vector<uint8_t>(), CURLWS_PING);
+}
+
+void EventLoop::WsStartPongTimer(WsConnection* conn) {
+    conn->rx_frames_at_ping_ = conn->rx_frames_;
+    conn->pong_timer_ = new uv_timer_t;
+    uv_timer_init(loop_, conn->pong_timer_);
+    conn->pong_timer_->data = conn;
+    uv_timer_start(conn->pong_timer_, OnWsPongTimeout,
+                   static_cast<uint64_t>(conn->pong_timeout) * 1000, 0);
+}
+
+// No frame of any kind arrived within pong_timeout of a ping: the peer vanished
+// without a FIN (host gone, NAT/firewall state dropped). Without this, nothing
+// notices until TCP retransmission gives up (~15 min on Linux defaults).
+void EventLoop::OnWsPongTimeout(uv_timer_t* handle) {
+    WsConnection* conn = static_cast<WsConnection*>(handle->data);
+    EventLoop* self = static_cast<EventLoop*>(handle->loop->data);
+
+    conn->pong_timer_ = nullptr;
+    uv_close(reinterpret_cast<uv_handle_t*>(handle), [](uv_handle_t* h) {
+        delete reinterpret_cast<uv_timer_t*>(h);
+    });
+
+    if (conn->handle_closed || conn->state != WsState::CONNECTED) return;
+    if (conn->rx_frames_ != conn->rx_frames_at_ping_) return;  // peer answered
+
+    char msg[96];
+    snprintf(msg, sizeof(msg), "no frame from peer within %ds of a ping", conn->pong_timeout);
+    self->PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
+        conn->plugin_context, conn->on_error, conn->userdata, false,
+        WS_ERROR_PONG_TIMEOUT, msg));
+    self->WsDisconnectOrReconnect(conn, WS_ERROR_PONG_TIMEOUT, msg);
 }
 
 void EventLoop::WsStartPingTimer(WsConnection* conn) {
@@ -1846,6 +1954,13 @@ void EventLoop::WsStopTimers(WsConnection* conn) {
             delete reinterpret_cast<uv_timer_t*>(h);
         });
         conn->ping_timer_ = nullptr;
+    }
+    if (conn->pong_timer_) {
+        uv_timer_stop(conn->pong_timer_);
+        uv_close(reinterpret_cast<uv_handle_t*>(conn->pong_timer_), [](uv_handle_t* h) {
+            delete reinterpret_cast<uv_timer_t*>(h);
+        });
+        conn->pong_timer_ = nullptr;
     }
     if (conn->reconnect_timer_) {
         uv_timer_stop(conn->reconnect_timer_);
@@ -1951,8 +2066,8 @@ void EventLoop::WsReconnect(WsConnection* conn) {
         ws_connections_.erase(conn->handle_id);
         // TODO: this path teardown is ad-hoc (no WsCleanup/WsStopTimers call).
         // It's currently safe because the only caller is OnWsReconnectTimer,
-        // which has already cleared reconnect_timer_, and ping/close timers
-        // aren't armed during reconnect. If a new timer type is added to
+        // which has already cleared reconnect_timer_, and ping/pong/close timers
+        // aren't armed during reconnect (WsStartReconnect's WsCleanup stopped them). If a new timer type is added to
         // WsConnection, or a new caller to WsReconnect, this path must be
         // unified with the WsCleanup contract the other close sites use.
         PushWsClosedOnce(conn, evt);
@@ -1992,6 +2107,12 @@ void EventLoop::WsCleanup(WsConnection* conn, bool keep_connection) {
         });
         conn->uv_poll = nullptr;
     }
+    conn->poll_events_ = 0;
+
+    // Frames queued for this connection die with it: a half-sent frame cannot be
+    // resumed on a new one, and a reconnecting plugin resends its state on onConnect.
+    conn->send_queue_.clear();
+    conn->send_queue_bytes_ = 0;
 
     // Remove from curl_multi, cleanup curl handle
     if (conn->curl_handle) {

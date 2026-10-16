@@ -133,6 +133,7 @@ private:
     static void OnWsPollActivity(uv_poll_t* handle, int status, int events);
     static void OnWsCloseTimeout(uv_timer_t* handle);
     static void OnWsPingTimer(uv_timer_t* handle);
+    static void OnWsPongTimeout(uv_timer_t* handle);
     static void OnWsReconnectTimer(uv_timer_t* handle);
 
     // DNS callbacks
@@ -174,6 +175,10 @@ private:
     void WsReconnect(WsConnection* conn);
     bool WsInitCurl(WsConnection* conn);
     void WsStartPingTimer(WsConnection* conn);
+    void WsStartPongTimer(WsConnection* conn);
+    bool WsQueueFrame(WsConnection* conn, std::vector<uint8_t> data, unsigned int flags);
+    bool WsPumpSendQueue(WsConnection* conn);
+    void WsUpdatePollEvents(WsConnection* conn);
     void WsStopTimers(WsConnection* conn);
 
     void PushSocketEvent(SocketEvent* evt);

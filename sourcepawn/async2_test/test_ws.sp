@@ -336,6 +336,133 @@ public void OnWsParseFailClose(WsSocket socket, int code, const char[] reason, a
     MaybeFinishAll();
 }
 
+// --- Send queue / dead-peer tests (API v12+) ---
+
+// Backpressure: the server pauses reading ("slow_read") while we send 8 MB, so our
+// socket fills and curl takes frames partially or not at all (CURLE_AGAIN). Every
+// frame must still arrive, whole and in order. Before v12 frames were dropped or
+// the stream was corrupted ("unaligned frame size").
+#define WS_BULK_SIZE  65536
+#define WS_BULK_COUNT 128
+char g_ws_bulk[WS_BULK_SIZE];
+int g_ws_bulk_next;
+bool g_ws_bulk_bad;
+
+void Test_WS_SendBackpressure() {
+    g_ws_test_pending++;
+    g_ws_bulk_next = 0;
+    g_ws_bulk_bad = false;
+    for (int i = 4; i < WS_BULK_SIZE; i++)
+        g_ws_bulk[i] = (i % 251) + 1;
+    WsSocket ws = new WsSocket(20);
+    ws.SetCallbacks(OnWsBulkConnect, OnWsBulkMessage, OnWsTestError, OnWsTestClose);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsBulkConnect(WsSocket socket, any userdata) {
+    socket.SendText("slow_read");
+    for (int i = 0; i < WS_BULK_COUNT; i++) {
+        g_ws_bulk[0] = i;   // < 128: one byte carries the index
+        g_ws_bulk[1] = 0;
+        g_ws_bulk[2] = 0;
+        g_ws_bulk[3] = 0;
+        socket.SendBinary(g_ws_bulk, WS_BULK_SIZE);
+    }
+}
+
+public void OnWsBulkMessage(WsSocket socket, const char[] data, int length, bool isBinary, any userdata) {
+    if (!isBinary || length != WS_BULK_SIZE || data[0] != g_ws_bulk_next
+            || data[WS_BULK_SIZE - 1] != g_ws_bulk[WS_BULK_SIZE - 1]) {
+        if (!g_ws_bulk_bad)
+            PrintToServer("  [DEBUG] WS bulk: frame %d bad (binary=%d len=%d idx=%d)",
+                g_ws_bulk_next, isBinary, length, data[0]);
+        g_ws_bulk_bad = true;
+    }
+    g_ws_bulk_next++;
+    if (g_ws_bulk_next == WS_BULK_COUNT) {
+        Assert(!g_ws_bulk_bad, "WS backpressure: every frame echoed whole and in order");
+        socket.Close();
+    }
+}
+
+// Dead peer: the server stops reading and answering pings but keeps TCP open
+// ("stall"). With WS_PING_INTERVAL 1 + WS_PONG_TIMEOUT 2 the connection must
+// count as dropped within a few seconds and reconnect.
+bool g_ws_pong_first;
+bool g_ws_pong_timeout_seen;
+float g_ws_pong_stall_at;
+float g_ws_pong_elapsed;
+
+void Test_WS_PongTimeout() {
+    g_ws_test_pending++;
+    g_ws_pong_first = true;
+    g_ws_pong_timeout_seen = false;
+    WsSocket ws = new WsSocket(21);
+    ws.SetCallbacks(OnWsPongConnect, OnWsTestMessage, OnWsPongError, OnWsTestClose);
+    ws.SetOption(WS_PING_INTERVAL, 1);
+    ws.SetOption(WS_PONG_TIMEOUT, 2);
+    ws.SetReconnect(1, 100);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsPongConnect(WsSocket socket, any userdata) {
+    if (g_ws_pong_first) {
+        g_ws_pong_first = false;
+        g_ws_pong_stall_at = GetEngineTime();
+        socket.SendText("stall");
+        return;
+    }
+    Assert(g_ws_pong_timeout_seen, "WS pong timeout raised WS_ERROR_PONG_TIMEOUT");
+    Assert(g_ws_pong_elapsed > 1.5 && g_ws_pong_elapsed < 6.0, "WS pong timeout fired within ping+timeout");
+    Assert(true, "WS reconnected after pong timeout");
+    socket.Close();
+}
+
+public void OnWsPongError(WsSocket socket, int error, const char[] msg, any userdata) {
+    if (error == WS_ERROR_PONG_TIMEOUT && !g_ws_pong_timeout_seen) {
+        g_ws_pong_timeout_seen = true;
+        g_ws_pong_elapsed = GetEngineTime() - g_ws_pong_stall_at;
+        return;
+    }
+    g_failed++;
+    PrintToServer("[FAIL] WS pong test: unexpected error %d %s", error, msg);
+}
+
+// Send queue cap: the server stalls, we send 16 MB with a 512 KB cap. Once the
+// kernel buffers are full, the queue passes the cap and the connection fails with
+// WS_ERROR_SEND_QUEUE_FULL; without SetReconnect, onClose follows.
+bool g_ws_qfull_seen;
+
+void Test_WS_SendQueueFull() {
+    g_ws_test_pending++;
+    g_ws_qfull_seen = false;
+    WsSocket ws = new WsSocket(22);
+    ws.SetCallbacks(OnWsQFullConnect, OnWsTestMessage, OnWsQFullError, OnWsQFullClose);
+    ws.SetOption(WS_MAX_SEND_QUEUE, 512 * 1024);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsQFullConnect(WsSocket socket, any userdata) {
+    socket.SendText("stall");
+    for (int i = 0; i < 256; i++)
+        socket.SendBinary(g_ws_bulk, WS_BULK_SIZE);
+}
+
+public void OnWsQFullError(WsSocket socket, int error, const char[] msg, any userdata) {
+    if (error == WS_ERROR_SEND_QUEUE_FULL) {
+        g_ws_qfull_seen = true;
+        return;
+    }
+    g_failed++;
+    PrintToServer("[FAIL] WS queue-full test: unexpected error %d %s", error, msg);
+}
+
+public void OnWsQFullClose(WsSocket socket, int code, const char[] reason, any userdata) {
+    Assert(g_ws_qfull_seen, "WS send queue over cap raised WS_ERROR_SEND_QUEUE_FULL");
+    g_ws_test_pending--;
+    MaybeFinishAll();
+}
+
 void RunWsTests() {
     Test_WS_TextEcho();
     Test_WS_BinaryEcho();
@@ -348,4 +475,7 @@ void RunWsTests() {
     Test_WS_RemoveHeader();
     Test_WS_ClearHeaders();
     Test_WS_CaseInsensitiveHeader();
+    Test_WS_SendBackpressure();
+    Test_WS_PongTimeout();
+    Test_WS_SendQueueFull();
 }

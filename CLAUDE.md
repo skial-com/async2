@@ -77,6 +77,10 @@ Socket close natives (`TcpClose`, `UdpClose`, `WsClose`) set `handle_closed` on 
 
 **WsCleanup never pushes events**: All paths must push `WS_CLOSED` event before calling `WsCleanup`.
 
+**WS send FIFO**: Every outgoing WS frame (data, ping, close, close echo) goes through `WsQueueFrame` → `WsPumpSendQueue`; never call `curl_ws_send` directly. curl may take part of a frame (`CURLE_OK`, `sent < len`) or none of it (`CURLE_AGAIN`, header possibly already buffered), and a started frame must be finished before another begins ("unaligned frame size" otherwise) — so only the queue head is ever in progress, and uv_poll adds `UV_WRITABLE` exactly while the queue is non-empty (`WsUpdatePollEvents`). `WsQueueFrame`/`WsPumpSendQueue` return false when they tore the connection down (queue over `max_send_queue`, hard send error); callers must return without touching `conn`. `WsCleanup` clears the queue.
+
+**WS pong watchdog**: `WS_PONG_TIMEOUT` arms `pong_timer_` from the auto-ping timer (before queueing the ping, so a ping stuck behind a full socket still times out) and snapshots `rx_frames_`; any inbound frame bumps the counter. No change at expiry → `WS_ERROR_PONG_TIMEOUT` + `WsDisconnectOrReconnect`. `WsStopTimers` owns `pong_timer_` like the other timers.
+
 **simdjson error handling**: Never apply `!` or implicit bool to `simdjson_result<T>` — always `.error()` first, then `.value()`. For `is_null()`, check error before value (input starting with `n` but not `null` → `INCORRECT_TYPE`).
 
 ### DNS
