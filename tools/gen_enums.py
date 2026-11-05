@@ -143,6 +143,14 @@ def write_inc(enums):
             f.write('\n')
 
 
+def _opt_base(value):
+    """Return the CURLOPTTYPE base (0/10000/20000/30000) of a preprocessed
+    enum value like '20000 + 11' or '((20000) + (11))' (curl >= 8.19 adds
+    parentheses), or None if it has no 'base + N' form."""
+    m = re.match(r'[\s(]*(\d+)[\s)]*\+', value)
+    return int(m.group(1)) if m else None
+
+
 def main():
     preprocessed = preprocess([CURL_H, MULTI_H])
 
@@ -167,7 +175,8 @@ def main():
         r'^\s+(CURLOPT_\w+)\s*=\s*(.+)',
         preprocessed, re.MULTILINE,
     )
-    curlopt_names = [n for n, v in curlopt_pairs if not v.startswith('20000')]
+    curlopt_names = [n for n, v in curlopt_pairs
+                     if _opt_base(v) != 20000]
 
     # CURLMOPT — CURLMOPT_FOO = N + N, skip FUNCTIONPOINT (20000 + N)
     # and OBJECTPOINT (10000 + N) and CURLMOPT_LASTENTRY sentinel
@@ -176,7 +185,7 @@ def main():
         preprocessed, re.MULTILINE,
     )
     curlmopt_names = [n for n, v in curlmopt_pairs
-                      if not v.startswith(('20000', '10000'))]
+                      if _opt_base(v) not in (20000, 10000)]
 
     c_source = generate_c_source([
         ('CURLcode', curlcode_names),

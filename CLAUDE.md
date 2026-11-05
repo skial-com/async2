@@ -18,7 +18,7 @@ Windows: `build_deps.bat` then `cmake .. -A x64 -DSM_PATH=<sourcemod>` + `cmake 
 
 ### Dependencies
 
-Static libraries via git submodules (`third_party/`): libuv, libcurl 8.18.0 (OpenSSL 3.5 LTS on Linux / Schannel on Windows, c-ares), c-ares, zlib, nghttp2, brotli, simdjson, OpenSSL. Header-only: tsl/robin-map, xxHash.
+Static libraries via git submodules (`third_party/`): libuv, libcurl 8.23.0 (OpenSSL 3.6 on Linux / Schannel on Windows, c-ares), c-ares, zlib, nghttp2, brotli, simdjson, OpenSSL. Header-only: tsl/robin-map, xxHash.
 
 **OpenSSL**: Git submodule in `third_party/openssl`. Built via Perl `Configure` + `make` (not CMake — OpenSSL doesn't support it). `build_deps.sh` runs out-of-source build in `build_tmp/$ARCH/openssl-build/`. Stripped config: `no-shared no-ssl3 no-tls1 no-tls1_1 no-dtls no-engine no-fips no-legacy no-dsa no-dh` plus unused ciphers. For 32-bit: target `linux-x86`; for 64-bit: `linux-x86_64`. `install_sw` installs libs+headers without docs.
 
