@@ -211,4 +211,13 @@ public void __ext_async2_SetNTVOptional()
     // WS_MAX_SEND_QUEUE, new onError codes WS_ERROR_PONG_TIMEOUT (-2) and
     // WS_ERROR_SEND_QUEUE_FULL (-3). No new natives; older builds ignore the
     // new option ids.
+
+    // API version 13: async2 answers WebSocket PINGs itself, immediately, even on
+    // an idle connection (curl 8.23's auto-pong was only flushed on the next send
+    // or data frame, so quiet connections missed server pong deadlines). PONGs
+    // still waiting behind a full socket are merged, answering only the latest
+    // PING. WS_AUTO_PONG 0 still disables replies. Also, with SetReconnect,
+    // every drop that schedules a retry fires onError with the new code
+    // WS_ERROR_RECONNECTING (-4); a clean close or server CLOSE frame used to
+    // reconnect with no callback at all. Behavior change only, no new natives.
 }

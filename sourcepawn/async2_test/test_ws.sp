@@ -79,12 +79,14 @@ public void OnWsTestClose(WsSocket socket, int code, const char[] reason, any us
 // --- Reconnect Tests ---
 
 bool g_ws_reconnect_first;
+bool g_ws_reconnect_notified;
 
 // Test reconnect after server drops connection.
 // Flow: connect → send "force_close" → server drops TCP → reconnect → onConnect fires again → echo → close
 void Test_WS_Reconnect() {
     g_ws_test_pending++;
     g_ws_reconnect_first = true;
+    g_ws_reconnect_notified = false;
     WsSocket ws = new WsSocket(10);
     ws.SetCallbacks(OnWsReconnectConnect, OnWsReconnectMessage, OnWsReconnectError, OnWsReconnectClose);
     ws.SetReconnect(3, 100);  // 3 attempts, 100ms initial delay
@@ -99,6 +101,7 @@ public void OnWsReconnectConnect(WsSocket socket, any userdata) {
     } else {
         // Reconnected — verify it works
         Assert(true, "WS reconnect succeeded");
+        Assert(g_ws_reconnect_notified, "WS clean TCP drop fired WS_ERROR_RECONNECTING");
         socket.SendText("hello after reconnect");
     }
 }
@@ -119,6 +122,8 @@ public void OnWsReconnectMessage(WsSocket socket, const char[] data, int length,
 
 public void OnWsReconnectError(WsSocket socket, int error, const char[] msg, any userdata) {
     // Errors during reconnect attempts are expected, don't fail
+    if (error == WS_ERROR_RECONNECTING)
+        g_ws_reconnect_notified = true;
 }
 
 public void OnWsReconnectClose(WsSocket socket, int code, const char[] reason, any userdata) {
@@ -128,10 +133,12 @@ public void OnWsReconnectClose(WsSocket socket, int code, const char[] reason, a
 
 // Test reconnect exhaustion: connect to bad port, all attempts fail, onClose fires.
 int g_ws_exhausted_errors;
+int g_ws_exhausted_reconnecting;
 
 void Test_WS_Reconnect_Exhausted() {
     g_ws_test_pending++;
     g_ws_exhausted_errors = 0;
+    g_ws_exhausted_reconnecting = 0;
     WsSocket ws = new WsSocket(11);
     ws.SetCallbacks(OnWsExhaustedConnect, OnWsTestMessage, OnWsExhaustedError, OnWsExhaustedClose);
     ws.SetReconnect(2, 100);  // 2 attempts, 100ms delay
@@ -144,12 +151,17 @@ public void OnWsExhaustedConnect(WsSocket socket, any userdata) {
 }
 
 public void OnWsExhaustedError(WsSocket socket, int error, const char[] msg, any userdata) {
-    g_ws_exhausted_errors++;
+    if (error == WS_ERROR_RECONNECTING)
+        g_ws_exhausted_reconnecting++;
+    else
+        g_ws_exhausted_errors++;
 }
 
 public void OnWsExhaustedClose(WsSocket socket, int code, const char[] reason, any userdata) {
     // 3 errors: 1 initial + 2 reconnects
     AssertEq(g_ws_exhausted_errors, 3, "WS reconnect exhausted error count");
+    // A retry was scheduled after the 1st and 2nd failures, not after the last
+    AssertEq(g_ws_exhausted_reconnecting, 2, "WS reconnect exhausted WS_ERROR_RECONNECTING count");
     g_ws_test_pending--;
     MaybeFinishAll();
 }
@@ -424,6 +436,8 @@ public void OnWsPongError(WsSocket socket, int error, const char[] msg, any user
         g_ws_pong_elapsed = GetEngineTime() - g_ws_pong_stall_at;
         return;
     }
+    if (error == WS_ERROR_RECONNECTING && g_ws_pong_timeout_seen)
+        return;
     g_failed++;
     PrintToServer("[FAIL] WS pong test: unexpected error %d %s", error, msg);
 }
@@ -463,6 +477,183 @@ public void OnWsQFullClose(WsSocket socket, int code, const char[] reason, any u
     MaybeFinishAll();
 }
 
+// --- Answering server PINGs (API v13+) ---
+// curl 8.23's auto-pong was only flushed on our next send, so an idle client
+// never answered. The server's "ping" command sends a PING, waits 1s while we
+// send nothing, then reports "pong-ok" or "pong-missing".
+
+void Test_WS_PongWhileIdle() {
+    g_ws_test_pending++;
+    WsSocket ws = new WsSocket(40);
+    ws.SetCallbacks(OnWsIdlePingConnect, OnWsIdlePingMessage, OnWsTestError, OnWsTestClose);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsIdlePingConnect(WsSocket socket, any userdata) {
+    socket.SendText("ping");
+}
+
+public void OnWsIdlePingMessage(WsSocket socket, const char[] data, int length, bool isBinary, any userdata) {
+    if (!StrEqual(data, "pong-ok"))
+        PrintToServer("  [DEBUG] WS idle ping: server said '%s'", data);
+    Assert(StrEqual(data, "pong-ok"), "WS answers server PING while idle");
+    socket.Close();
+}
+
+// Empty and maximum (125-byte) PING payloads must come back unchanged.
+int g_ws_ping_payload_step;
+
+void Test_WS_PingPayloads() {
+    g_ws_test_pending++;
+    g_ws_ping_payload_step = 0;
+    WsSocket ws = new WsSocket(41);
+    ws.SetCallbacks(OnWsPingPayloadConnect, OnWsPingPayloadMessage, OnWsTestError, OnWsTestClose);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsPingPayloadConnect(WsSocket socket, any userdata) {
+    socket.SendText("ping_payload:0");
+}
+
+public void OnWsPingPayloadMessage(WsSocket socket, const char[] data, int length, bool isBinary, any userdata) {
+    if (!StrEqual(data, "pong-ok"))
+        PrintToServer("  [DEBUG] WS ping payload step %d: server said '%s'", g_ws_ping_payload_step, data);
+    if (g_ws_ping_payload_step == 0) {
+        Assert(StrEqual(data, "pong-ok"), "WS PONG echoes empty PING payload");
+        g_ws_ping_payload_step = 1;
+        socket.SendText("ping_payload:125");
+        return;
+    }
+    Assert(StrEqual(data, "pong-ok"), "WS PONG echoes 125-byte PING payload");
+    socket.Close();
+}
+
+// PING flood against a full socket: the server stops reading while we send
+// 24 MB, then sends 2000 PINGs. Our PONGs wait behind the stuck data and must be
+// merged (latest payload wins) instead of queueing one per PING.
+#define WS_FLOOD_FRAMES 384
+int g_ws_flood_echoed;
+
+void Test_WS_PingFlood() {
+    g_ws_test_pending++;
+    g_ws_flood_echoed = 0;
+    WsSocket ws = new WsSocket(42);
+    ws.SetCallbacks(OnWsFloodConnect, OnWsFloodMessage, OnWsTestError, OnWsTestClose);
+    ws.SetOption(WS_MAX_SEND_QUEUE, 64 * 1024 * 1024);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsFloodConnect(WsSocket socket, any userdata) {
+    socket.SendText("ping_flood");
+    for (int i = 0; i < WS_FLOOD_FRAMES; i++)
+        socket.SendBinary(g_ws_bulk, WS_BULK_SIZE);
+}
+
+public void OnWsFloodMessage(WsSocket socket, const char[] data, int length, bool isBinary, any userdata) {
+    if (isBinary) {
+        if (++g_ws_flood_echoed == WS_FLOOD_FRAMES)
+            socket.SendText("flood_report");
+        return;
+    }
+    // "pongs=N last=K"
+    char parts[2][32];
+    ExplodeString(data, " ", parts, sizeof(parts), sizeof(parts[]));
+    int pongs = StringToInt(parts[0][6]);
+    int last = StringToInt(parts[1][5]);
+    PrintToServer("  WS ping flood: %s", data);
+    Assert(pongs >= 1 && pongs <= 10, "WS PING flood: PONGs merged while socket full");
+    AssertEq(last, 1999, "WS PING flood: last PONG answers latest PING");
+    socket.Close();
+}
+
+// WS_AUTO_PONG 0: no PONG goes out.
+void Test_WS_AutoPongOff() {
+    g_ws_test_pending++;
+    WsSocket ws = new WsSocket(43);
+    ws.SetCallbacks(OnWsIdlePingConnect, OnWsNoPongMessage, OnWsTestError, OnWsTestClose);
+    ws.SetOption(WS_AUTO_PONG, 0);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsNoPongMessage(WsSocket socket, const char[] data, int length, bool isBinary, any userdata) {
+    if (!StrEqual(data, "pong-missing"))
+        PrintToServer("  [DEBUG] WS auto-pong off: server said '%s'", data);
+    Assert(StrEqual(data, "pong-missing"), "WS_AUTO_PONG 0 sends no PONG");
+    socket.Close();
+}
+
+// Server CLOSE frame with SetReconnect: before v13 this reconnected with no
+// callback at all. Now onError gets WS_ERROR_RECONNECTING naming the close code.
+bool g_ws_srvclose_first;
+bool g_ws_srvclose_notified;
+
+void Test_WS_ReconnectServerClose() {
+    g_ws_test_pending++;
+    g_ws_srvclose_first = true;
+    g_ws_srvclose_notified = false;
+    WsSocket ws = new WsSocket(44);
+    ws.SetCallbacks(OnWsSrvCloseConnect, OnWsTestMessage, OnWsSrvCloseError, OnWsTestClose);
+    ws.SetReconnect(1, 100);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsSrvCloseConnect(WsSocket socket, any userdata) {
+    if (g_ws_srvclose_first) {
+        g_ws_srvclose_first = false;
+        socket.SendText("server_close");
+        return;
+    }
+    Assert(g_ws_srvclose_notified, "WS server CLOSE frame fired WS_ERROR_RECONNECTING with its code");
+    socket.Close();
+}
+
+public void OnWsSrvCloseError(WsSocket socket, int error, const char[] msg, any userdata) {
+    if (error == WS_ERROR_RECONNECTING && StrContains(msg, "1001 going away") != -1) {
+        g_ws_srvclose_notified = true;
+        return;
+    }
+    g_failed++;
+    PrintToServer("[FAIL] WS server-close test: unexpected error %d %s", error, msg);
+}
+
+// Close() inside onError(WS_ERROR_RECONNECTING) cancels the pending retry:
+// onClose fires and onConnect does not fire a second time. The 2s retry delay
+// keeps the timer pending when the game thread handles the error.
+int g_ws_cancel_connects;
+bool g_ws_cancel_closed_in_error;
+
+void Test_WS_CancelReconnect() {
+    g_ws_test_pending++;
+    g_ws_cancel_connects = 0;
+    g_ws_cancel_closed_in_error = false;
+    WsSocket ws = new WsSocket(45);
+    ws.SetCallbacks(OnWsCancelConnect, OnWsTestMessage, OnWsCancelError, OnWsCancelClose);
+    ws.SetReconnect(3, 2000, 1.0, 2000);
+    ws.Connect("ws://127.0.0.1:8792");
+}
+
+public void OnWsCancelConnect(WsSocket socket, any userdata) {
+    if (++g_ws_cancel_connects == 1)
+        socket.SendText("force_close");
+}
+
+public void OnWsCancelError(WsSocket socket, int error, const char[] msg, any userdata) {
+    if (error == WS_ERROR_RECONNECTING && !g_ws_cancel_closed_in_error) {
+        g_ws_cancel_closed_in_error = true;
+        socket.Close();
+        return;
+    }
+    g_failed++;
+    PrintToServer("[FAIL] WS cancel-reconnect test: unexpected error %d %s", error, msg);
+}
+
+public void OnWsCancelClose(WsSocket socket, int code, const char[] reason, any userdata) {
+    Assert(g_ws_cancel_closed_in_error, "WS cancel reconnect: Close() called from WS_ERROR_RECONNECTING");
+    AssertEq(g_ws_cancel_connects, 1, "WS cancel reconnect: Close() in onError stops the retry");
+    g_ws_test_pending--;
+    MaybeFinishAll();
+}
+
 void RunWsTests() {
     Test_WS_TextEcho();
     Test_WS_BinaryEcho();
@@ -478,4 +669,10 @@ void RunWsTests() {
     Test_WS_SendBackpressure();
     Test_WS_PongTimeout();
     Test_WS_SendQueueFull();
+    Test_WS_PongWhileIdle();
+    Test_WS_PingPayloads();
+    Test_WS_PingFlood();
+    Test_WS_AutoPongOff();
+    Test_WS_ReconnectServerClose();
+    Test_WS_CancelReconnect();
 }

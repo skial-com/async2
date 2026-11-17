@@ -81,6 +81,10 @@ Socket close natives (`TcpClose`, `UdpClose`, `WsClose`) set `handle_closed` on 
 
 **WS pong watchdog**: `WS_PONG_TIMEOUT` arms `pong_timer_` from the auto-ping timer (before queueing the ping, so a ping stuck behind a full socket still times out) and snapshots `rx_frames_`; any inbound frame bumps the counter. No change at expiry → `WS_ERROR_PONG_TIMEOUT` + `WsDisconnectOrReconnect`. `WsStopTimers` owns `pong_timer_` like the other timers.
 
+**WS PINGs answered by async2, not curl**: `WsInitCurl` always sets `CURLWS_NOAUTOPONG`. curl 8.23's auto-pong is only *stored*; it goes out on the next `curl_ws_send` or a `curl_ws_recv` that returns a data frame. A recv that reads just a PING ends in `CURLE_AGAIN` and skips the flush (`lib/ws.c`, end of `curl_ws_recv`), so an idle client missed server pong deadlines (production: 20s server timeout dropped quiet game servers every ~60s). `OnWsPollActivity` collects the PING payload in `ping_buf_` and calls `WsQueuePong` when `auto_pong && !close_sent_`. `WsQueuePong` overwrites a PONG still waiting in the queue (`queued_pong_`) instead of appending — control frames skip `max_send_queue`, so this bounds a PING flood — but never the queue head, whose header curl may already hold.
+
+**WS reconnect always tells the plugin**: `WsStartReconnect(conn, cause)` pushes `WS_ERROR` with `WS_ERROR_RECONNECTING` (-4) and "reconnecting in N ms (attempt K): cause" for every scheduled retry. onClose only fires once retries are exhausted, so without it a clean TCP close or a server CLOSE frame reconnected silently and plugins kept state for requests the old connection would never answer. `Close()` from that callback cancels the retry: `ProcessWsClose` handles RECONNECTING (stop timer), CONNECTING and CONNECTED, each ending in one `onClose` — no separate cancel native needed.
+
 **simdjson error handling**: Never apply `!` or implicit bool to `simdjson_result<T>` — always `.error()` first, then `.value()`. For `is_null()`, check error before value (input starting with `n` but not `null` → `INCORRECT_TYPE`).
 
 ### DNS

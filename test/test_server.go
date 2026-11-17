@@ -362,12 +362,37 @@ func wsWriteFrame(conn net.Conn, opcode byte, payload []byte) error {
 	return err
 }
 
+// wsPingCheck sends a PING and waits up to 1s for the matching PONG while the
+// client sends nothing else. Answers "pong-ok", "pong-mismatch" or "pong-missing".
+// A client that only flushes pongs on its next send (curl 8.23 auto-pong) fails.
+func wsPingCheck(conn net.Conn, payload []byte) string {
+	if err := wsWriteFrame(conn, 0x9, payload); err != nil {
+		return "pong-missing"
+	}
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	defer conn.SetReadDeadline(time.Time{})
+	for {
+		opcode, got, err := wsReadFrame(conn)
+		if err != nil {
+			return "pong-missing"
+		}
+		if opcode == 0xA {
+			if bytes.Equal(got, payload) {
+				return "pong-ok"
+			}
+			return fmt.Sprintf("pong-mismatch len=%d want=%d", len(got), len(payload))
+		}
+	}
+}
+
 func handleWsConn(conn net.Conn, upgradeHeaders ...map[string]string) {
 	defer conn.Close()
 	var headers map[string]string
 	if len(upgradeHeaders) > 0 {
 		headers = upgradeHeaders[0]
 	}
+	pongCount := 0
+	var lastPong []byte
 	for {
 		opcode, payload, err := wsReadFrame(conn)
 		if err != nil {
@@ -375,6 +400,53 @@ func handleWsConn(conn net.Conn, upgradeHeaders ...map[string]string) {
 		}
 		switch opcode {
 		case 0x1, 0x2: // text, binary — echo back
+			if opcode == 0x1 && string(payload) == "ping" {
+				if err := wsWriteFrame(conn, 0x1, []byte(wsPingCheck(conn, []byte("idle-check")))); err != nil {
+					return
+				}
+				continue
+			}
+			if opcode == 0x1 && strings.HasPrefix(string(payload), "ping_payload:") {
+				n, _ := strconv.Atoi(strings.TrimPrefix(string(payload), "ping_payload:"))
+				p := make([]byte, n)
+				for i := range p {
+					p[i] = byte(i%251 + 1)
+				}
+				if err := wsWriteFrame(conn, 0x1, []byte(wsPingCheck(conn, p))); err != nil {
+					return
+				}
+				continue
+			}
+			if opcode == 0x1 && string(payload) == "server_close" {
+				// Server-initiated close handshake (1001 going away), then drop TCP.
+				// A client with SetReconnect must report WS_ERROR_RECONNECTING.
+				wsWriteFrame(conn, 0x8, append([]byte{0x03, 0xE9}, "going away"...))
+				conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+				wsReadFrame(conn) // the client's close echo
+				return
+			}
+			if opcode == 0x1 && string(payload) == "ping_flood" {
+				// Stop reading so the client's socket fills (it sends bulk data next),
+				// then flood it with PINGs. Its pongs pile up behind the stuck data
+				// and must be merged, not queued one per PING. Then resume echoing.
+				time.Sleep(1 * time.Second)
+				pongCount = 0
+				lastPong = nil
+				for i := 0; i < 2000; i++ {
+					if err := wsWriteFrame(conn, 0x9, []byte(strconv.Itoa(i))); err != nil {
+						return
+					}
+				}
+				time.Sleep(2 * time.Second)
+				continue
+			}
+			if opcode == 0x1 && string(payload) == "flood_report" {
+				resp := fmt.Sprintf("pongs=%d last=%s", pongCount, lastPong)
+				if err := wsWriteFrame(conn, 0x1, []byte(resp)); err != nil {
+					return
+				}
+				continue
+			}
 			if opcode == 0x1 && string(payload) == "force_close" {
 				conn.Close() // drop TCP without close frame (simulates abnormal disconnect)
 				return
@@ -408,7 +480,9 @@ func handleWsConn(conn net.Conn, upgradeHeaders ...map[string]string) {
 			return
 		case 0x9: // ping — reply with pong
 			wsWriteFrame(conn, 0xA, payload)
-		case 0xA: // pong — ignore
+		case 0xA: // pong — counted for flood_report
+			pongCount++
+			lastPong = payload
 		}
 	}
 }

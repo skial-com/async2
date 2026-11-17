@@ -37,6 +37,17 @@ enum WsState {
 // frames are discarded.
 #define WS_ERROR_SEND_QUEUE_FULL -3
 
+// The connection was lost and SetReconnect has scheduled another attempt (API v13+).
+// Fires once per drop, for every cause -- including a clean close or a CLOSE frame
+// from the server, which raised no callback at all before v13. msg says why and when
+// the next attempt runs. The retry is already scheduled: don't start your own
+// reconnect from here. Use it to discard state tied to the old connection (e.g.
+// requests still waiting for a reply -- none will arrive). onConnect fires again
+// when the reconnect succeeds. To give up instead, call Close() here: it cancels
+// the pending retry (or the attempt already in progress) and onClose follows.
+// Use ReconnectCount to give up after your own condition.
+#define WS_ERROR_RECONNECTING -4
+
 // WebSocket close status codes (RFC 6455 Section 7.4.1)
 #define WS_CLOSE_NORMAL            1000  // Normal closure
 #define WS_CLOSE_GOING_AWAY        1001  // Server shutting down or page navigating away
@@ -197,7 +208,8 @@ native int async2_WsSetOption(WsSocket socket, int option, int value);
  * Must be called before Connect. Does NOT trigger on user-initiated WsClose.
  * Headers and options are preserved across reconnects. onConnect fires again
  * on success. onError fires for each failed attempt. onClose fires only after
- * all retries are exhausted.
+ * all retries are exhausted. API v13+: every drop that schedules a retry also
+ * fires onError with WS_ERROR_RECONNECTING, after any error describing the cause.
  *
  * @param maxReconnects  Maximum attempts (0 = disabled, -1 = unlimited).
  * @param delayMs        Initial delay before first reconnect in milliseconds.
@@ -222,7 +234,8 @@ native WsState async2_WsGetState(WsSocket socket);
 
 // Option constants for async2_WsSetOption
 #define WS_MAX_MESSAGE_SIZE  0  // Max message bytes before 1009 close (default 16MB)
-#define WS_AUTO_PONG         1  // Auto-reply to pings (default 1=on, curl handles it)
+#define WS_AUTO_PONG         1  // Auto-reply to pings (default 1=on, async2 replies immediately; API v13+:
+                                // also settable while connected)
 #define WS_PING_INTERVAL     2  // Auto-ping interval in seconds (0=disabled)
 #define WS_CLOSE_TIMEOUT     3  // Close handshake timeout in seconds (default 5)
 #define WS_SSL_VERIFYPEER    4  // SSL peer verification (default 1)

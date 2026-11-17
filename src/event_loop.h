@@ -169,14 +169,15 @@ private:
     void ProcessWsSetOption(WsOp* op);
     void WsCleanup(WsConnection* conn, bool keep_connection = false);
     bool WsShouldReconnect(WsConnection* conn);
-    void WsStartReconnect(WsConnection* conn);
-    void WsDisconnectOrReconnect(WsConnection* conn);
+    void WsStartReconnect(WsConnection* conn, const std::string& cause);
+    void WsDisconnectOrReconnect(WsConnection* conn, const char* cause = "connection lost");
     void WsDisconnectOrReconnect(WsConnection* conn, int error_code, const std::string& error_msg);
     void WsReconnect(WsConnection* conn);
     bool WsInitCurl(WsConnection* conn);
     void WsStartPingTimer(WsConnection* conn);
     void WsStartPongTimer(WsConnection* conn);
     bool WsQueueFrame(WsConnection* conn, std::vector<uint8_t> data, unsigned int flags);
+    bool WsQueuePong(WsConnection* conn, std::vector<uint8_t> payload);
     bool WsPumpSendQueue(WsConnection* conn);
     void WsUpdatePollEvents(WsConnection* conn);
     void WsStopTimers(WsConnection* conn);

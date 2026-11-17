@@ -1568,6 +1568,30 @@ bool EventLoop::WsQueueFrame(WsConnection* conn, std::vector<uint8_t> data, unsi
     return WsPumpSendQueue(conn);
 }
 
+// Queues a PONG answering a PING. If an earlier PONG is still waiting behind other
+// frames, its payload is replaced instead: control frames are exempt from
+// max_send_queue, so without merging a PING flood against a full socket would grow
+// the queue without limit (RFC 6455 5.5.3 allows answering only the latest PING).
+// The queue head is never merged into -- curl may already hold its frame header
+// (CURLE_AGAIN), and changing the payload length would misalign the stream.
+// Same return contract as WsQueueFrame.
+bool EventLoop::WsQueuePong(WsConnection* conn, std::vector<uint8_t> payload) {
+    WsPendingFrame* q = conn->queued_pong_;
+    if (q && q != &conn->send_queue_.front()) {
+        conn->send_queue_bytes_ -= q->data.size();
+        conn->send_queue_bytes_ += payload.size();
+        q->data = std::move(payload);
+        return true;   // already waiting for UV_WRITABLE
+    }
+    conn->queued_pong_ = nullptr;
+    // push_back keeps references to existing deque elements valid, and the pump
+    // clears queued_pong_ before popping it, so the pointer stays sound.
+    conn->send_queue_bytes_ += payload.size();
+    conn->send_queue_.push_back(WsPendingFrame{std::move(payload), CURLWS_PONG});
+    conn->queued_pong_ = &conn->send_queue_.back();
+    return WsPumpSendQueue(conn);
+}
+
 // Sends queued frames in order until the queue is empty or the socket is full.
 // curl's contract (lib/ws.c, ws_enc_send): CURLE_OK with sent < len means it took
 // part of the payload and the rest must follow in later calls; CURLE_AGAIN means
@@ -1585,6 +1609,8 @@ bool EventLoop::WsPumpSendQueue(WsConnection* conn) {
             if (f.offset < f.data.size())
                 break;  // partial: the socket is full, resume on UV_WRITABLE
             conn->send_queue_bytes_ -= f.data.size();
+            if (&f == conn->queued_pong_)
+                conn->queued_pong_ = nullptr;
             conn->send_queue_.pop_front();
             continue;
         }
@@ -1736,7 +1762,7 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
         if (rc == CURLE_AGAIN) break;  // no more data
 
         if (rc == CURLE_GOT_NOTHING) {
-            self->WsDisconnectOrReconnect(conn);
+            self->WsDisconnectOrReconnect(conn, "connection closed by peer");
             return;
         }
         if (rc != CURLE_OK) {
@@ -1778,9 +1804,19 @@ void EventLoop::OnWsPollActivity(uv_poll_t* handle, int status, int events) {
             return;
         }
 
-        // PING frame
+        // PING frame: curl's auto-pong is off (WsInitCurl), so we answer. A PING
+        // payload is <= 125 bytes but may still arrive in pieces.
         if (meta->flags & CURLWS_PING) {
-            // curl handles auto-pong unless CURLWS_RAW_MODE was set
+            if (meta->offset == 0)
+                conn->ping_buf_.clear();
+            conn->ping_buf_.insert(conn->ping_buf_.end(), buf, buf + nread);
+            if (meta->bytesleft > 0)
+                continue;
+            if (conn->auto_pong && !conn->close_sent_) {
+                if (!self->WsQueuePong(conn, std::move(conn->ping_buf_)))
+                    return;
+            }
+            conn->ping_buf_.clear();
             continue;
         }
 
@@ -1980,9 +2016,9 @@ bool EventLoop::WsShouldReconnect(WsConnection* conn) {
     return true;
 }
 
-void EventLoop::WsDisconnectOrReconnect(WsConnection* conn) {
+void EventLoop::WsDisconnectOrReconnect(WsConnection* conn, const char* cause) {
     if (WsShouldReconnect(conn)) {
-        WsStartReconnect(conn);
+        WsStartReconnect(conn, cause);
     } else {
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
             conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
@@ -1993,7 +2029,17 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn) {
 
 void EventLoop::WsDisconnectOrReconnect(WsConnection* conn, int error_code, const std::string& error_msg) {
     if (WsShouldReconnect(conn)) {
-        WsStartReconnect(conn);
+        // error_code is a close code (>= 1000) when the server sent a CLOSE frame,
+        // otherwise one of our own codes / a CURLcode whose text is error_msg.
+        if (error_code >= 1000) {
+            std::string cause = "server closed connection (" + std::to_string(error_code);
+            if (!error_msg.empty())
+                cause += " " + error_msg;
+            cause += ")";
+            WsStartReconnect(conn, cause);
+        } else {
+            WsStartReconnect(conn, error_msg.empty() ? std::string("connection lost") : error_msg);
+        }
     } else {
         auto* evt = MakeSocketEvent(SocketEventType::WS_CLOSED, conn->handle_id,
             conn->plugin_context, conn->on_close, conn->userdata, conn->handle_closed.load());
@@ -2004,7 +2050,11 @@ void EventLoop::WsDisconnectOrReconnect(WsConnection* conn, int error_code, cons
     }
 }
 
-void EventLoop::WsStartReconnect(WsConnection* conn) {
+// Tells the plugin the connection is gone and a retry is scheduled, so it can drop
+// state tied to the old connection (in-flight requests etc.). Without this some
+// drops -- a clean TCP close, a server CLOSE frame -- reconnected with no callback
+// at all, since onClose only fires once retries are exhausted.
+void EventLoop::WsStartReconnect(WsConnection* conn, const std::string& cause) {
     WsCleanup(conn, true);
 
     conn->reconnect_count++;
@@ -2016,6 +2066,13 @@ void EventLoop::WsStartReconnect(WsConnection* conn) {
     if (delay < 0) delay = conn->reconnect_max_delay_ms;  // overflow guard
     thread_local std::minstd_rand rng(std::random_device{}());
     delay = std::uniform_int_distribution<int>(0, delay)(rng);
+
+    char msg[256];
+    snprintf(msg, sizeof(msg), "reconnecting in %d ms (attempt %d): %s",
+             delay, conn->reconnect_count.load(), cause.c_str());
+    PushSocketEvent(MakeErrorEvent(SocketEventType::WS_ERROR, conn->handle_id,
+        conn->plugin_context, conn->on_error, conn->userdata, false,
+        WS_ERROR_RECONNECTING, msg));
 
     conn->reconnect_timer_ = new uv_timer_t;
     uv_timer_init(loop_, conn->reconnect_timer_);
@@ -2038,8 +2095,11 @@ bool EventLoop::WsInitCurl(WsConnection* conn) {
     BuildHeaderSlist(conn->headers_, conn->headers_mutex_, conn->built_headers_);
     if (conn->built_headers_)
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, conn->built_headers_);
-    if (!conn->auto_pong)
-        curl_easy_setopt(curl, CURLOPT_WS_OPTIONS, static_cast<long>(CURLWS_NOAUTOPONG));
+    // Always: async2 answers PINGs itself (OnWsPollActivity -> WsQueuePong). curl's
+    // auto-pong is only stored, and goes out on the next curl_ws_send or a recv that
+    // returns a data frame -- a recv that reads just a PING ends in CURLE_AGAIN and
+    // never flushes it, so an idle connection misses the peer's pong deadline.
+    curl_easy_setopt(curl, CURLOPT_WS_OPTIONS, static_cast<long>(CURLWS_NOAUTOPONG));
     if (!conn->ssl_verifypeer)
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
     if (!conn->ssl_verifyhost)
@@ -2113,6 +2173,8 @@ void EventLoop::WsCleanup(WsConnection* conn, bool keep_connection) {
     // resumed on a new one, and a reconnecting plugin resends its state on onConnect.
     conn->send_queue_.clear();
     conn->send_queue_bytes_ = 0;
+    conn->queued_pong_ = nullptr;
+    conn->ping_buf_.clear();
 
     // Remove from curl_multi, cleanup curl handle
     if (conn->curl_handle) {

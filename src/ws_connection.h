@@ -17,6 +17,7 @@ enum class WsState { CREATED, CONNECTING, CONNECTED, CLOSING, CLOSED, RECONNECTI
 // WS_ERROR_PARSE_FAILED, raised from the game thread in extension.cpp.
 constexpr int WS_ERROR_PONG_TIMEOUT = -2;     // no frame within WS_PONG_TIMEOUT of a ping
 constexpr int WS_ERROR_SEND_QUEUE_FULL = -3;  // queued payload exceeded WS_MAX_SEND_QUEUE
+constexpr int WS_ERROR_RECONNECTING = -4;     // connection lost, SetReconnect retry scheduled
 
 enum class WsOpType { CONNECT, SEND_TEXT, SEND_BINARY, SEND_PING, SEND_JSON, SEND_MSGPACK, CLOSE, SET_OPTION };
 
@@ -74,7 +75,7 @@ public:
 
     // Options (set before Connect)
     int max_message_size = 16 * 1024 * 1024;  // 16 MB
-    bool auto_pong = true;
+    bool auto_pong = true;                     // async2 answers PINGs (curl's auto-pong is always off)
     int ping_interval = 0;                     // seconds, 0 = disabled
     int close_timeout = 5;                     // seconds
     bool ssl_verifypeer = true;
@@ -116,6 +117,11 @@ public:
     // a half-sent frame cannot be resumed on a new connection.
     std::deque<WsPendingFrame> send_queue_;
     size_t send_queue_bytes_ = 0;
+    // The PONG at the tail side of send_queue_ that a newer PING may still overwrite
+    // (WsQueuePong), or nullptr. Never the frame being sent once it reaches the head.
+    WsPendingFrame* queued_pong_ = nullptr;
+    // Payload of the PING being received (<= 125 bytes, may arrive in pieces).
+    std::vector<uint8_t> ping_buf_;
     int poll_events_ = 0;   // events uv_poll is currently started with
 
     // Reconnect settings (set on game thread before Connect, read on event thread)
